@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -74,6 +75,33 @@ def test_broker_rejects_cross_incident_and_unknown_lot_requests(
         broker.chart_context("incident-s2-001")
     with pytest.raises(BrokerScopeError, match="outside incident genealogy"):
         broker.query_incoming_inspection("incident-s1-001", "lot-not-in-scope")
+
+
+def test_citation_lookup_rejects_rows_outside_fixed_incident_queries(
+    broker: InvestigationBroker,
+) -> None:
+    """Scenario membership alone cannot make an invisible stale row citable."""
+
+    with sqlite3.connect(broker._database_path) as connection:
+        connection.execute(
+            "INSERT INTO equipment_logs VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                "equipment-s1-stale",
+                "scenario-1",
+                1,
+                "press-07",
+                "old-check",
+                "pass",
+                "Outside the incident lookback.",
+            ),
+        )
+
+    with pytest.raises(BrokerScopeError, match="outside incident evidence"):
+        broker.canonical_value(
+            table="equipment_logs",
+            row_id="equipment-s1-stale",
+            field="status",
+        )
 
 
 def test_mcp_skill_load_returns_exact_body_and_only_registered_tools(

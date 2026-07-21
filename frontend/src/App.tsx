@@ -94,7 +94,7 @@ function mergeRunEvents(current: RunEvent[], incoming: RunEvent[]) {
   return [...bySequence.values()].sort((left, right) => left.sequence - right.sequence);
 }
 
-function eventPresentation(event: RunEvent) {
+function eventPresentation(event: RunEvent, rejectedAttempts: Set<number>) {
   const { payload } = event;
   const text = typeof payload.text === "string" ? payload.text : "";
   if (event.type === "skill_load") {
@@ -129,16 +129,34 @@ function eventPresentation(event: RunEvent) {
   }
   if (event.type === "verifier") {
     const passed = payload.passed === true;
+    const failures = Array.isArray(payload.failures)
+      ? (payload.failures as Record<string, unknown>[])
+      : [];
+    const firstFailure = failures[0];
+    const citation = firstFailure?.citation as Record<string, unknown> | undefined;
+    const rejectedAnchor = citation
+      ? `${String(citation.table)}/${String(citation.id)}.${String(citation.field)}`
+      : "structured report";
+    const attempt = Number(payload.attempt ?? 0);
     return {
-      label: passed ? "CITATIONS VERIFIED" : "VERIFICATION REJECTED",
+      label: passed
+        ? "CITATIONS VERIFIED"
+        : attempt >= 2
+          ? "CLAIM REJECTED · RETRY EXHAUSTED"
+          : "VERIFICATION REJECTED · RETRYING",
       detail: passed
         ? `${String(payload.citation_count ?? 0)} row-level citations rechecked against the factory database`
-        : `Attempt ${String(payload.attempt ?? "?")} rejected; one corrective retry is permitted`,
+        : `${String(firstFailure?.claim ?? "Unverified claim")} · ${rejectedAnchor}${failures.length > 1 ? ` · +${failures.length - 1} more` : ""}`,
       tone: passed ? "verified" : "rejected",
     };
   }
   if (event.type === "decision") {
-    return { label: "MODEL CONCLUSION · PENDING GATE", detail: text, tone: "decision" };
+    const rejected = rejectedAttempts.has(Number(payload.attempt));
+    return {
+      label: rejected ? "REJECTED MODEL CONCLUSION" : "MODEL CONCLUSION · PENDING GATE",
+      detail: text,
+      tone: rejected ? "rejected" : "decision",
+    };
   }
   if (event.type === "runtime_error" || event.type === "skill_load_rejected") {
     return {
@@ -320,7 +338,9 @@ export default function App() {
           });
           setInvestigationStatus(payload.status ?? "investigating");
           if (payload.report) setReport(payload.report);
-          finished = payload.status === "completed" || payload.status === "failed";
+          finished = ["completed", "inconclusive", "failed"].includes(
+            payload.status ?? "",
+          );
         } else if (payload.type === "investigation_event" && payload.event) {
           setInvestigationEvents((current) => mergeRunEvents(current, [payload.event!]));
           lastInvestigationSequence.current = Math.max(
@@ -358,6 +378,12 @@ export default function App() {
     .reverse()
     .find((event) => event.type === "verifier" && event.payload.passed === true);
   const citationCount = Number(verifiedEvent?.payload.citation_count ?? 0);
+  const inconclusive = report?.status === "insufficient-evidence";
+  const rejectedAttempts = new Set(
+    investigationEvents
+      .filter((event) => event.type === "verifier" && event.payload.passed === false)
+      .map((event) => Number(event.payload.attempt)),
+  );
 
   useEffect(() => {
     const feed = activityFeed.current;
@@ -447,7 +473,7 @@ export default function App() {
               </div>
             ) : (
               investigationEvents.map((event) => {
-                const presentation = eventPresentation(event);
+                const presentation = eventPresentation(event, rejectedAttempts);
                 return (
                   <div
                     className={`activity-event ${presentation.tone}`}
@@ -468,11 +494,11 @@ export default function App() {
           </div>
         </article>
 
-        <aside className={`report-panel ${report ? "is-verified" : ""}`}>
+        <aside className={`report-panel ${report ? (inconclusive ? "is-inconclusive" : "is-verified") : ""}`}>
           <div className="investigation-heading">
             <div>
               <p className="eyebrow">INCIDENT REPORT</p>
-              <h2>{report ? "Verified conclusion" : "Verification gate"}</h2>
+              <h2>{report ? (inconclusive ? "Verified — inconclusive" : "Verified conclusion") : "Verification gate"}</h2>
             </div>
             {report && (
               <span className="verified-badge">✓ {citationCount} CITATIONS VERIFIED</span>
@@ -481,7 +507,7 @@ export default function App() {
           {report ? (
             <div className="report-content">
               <section className="root-cause">
-                <span>ROOT CAUSE / ELIMINATE-OR-IMPLICATE</span>
+                <span>{inconclusive ? "EVIDENCE LIMIT / NO ROOT CAUSE CONCLUDED" : "ROOT CAUSE / ELIMINATE-OR-IMPLICATE"}</span>
                 <p>{report.root_cause.text}</p>
                 <div className="citation-row">
                   {report.root_cause.citations.map((citation) => (

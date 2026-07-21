@@ -74,6 +74,16 @@ class VerificationResult:
     citation_count: int
 
 
+def _same_citation_value(canonical: object, cited: object) -> bool:
+    """Compare exactly except for intentional int/float JSON normalization."""
+
+    if isinstance(canonical, bool) or isinstance(cited, bool):
+        return type(canonical) is type(cited) and canonical == cited
+    if isinstance(canonical, (int, float)) and isinstance(cited, (int, float)):
+        return float(canonical) == float(cited)
+    return type(canonical) is type(cited) and canonical == cited
+
+
 def parse_report_json(payload: str) -> InvestigationReport:
     """Parse JSON and reject any output outside the public report contract."""
 
@@ -92,6 +102,19 @@ def verify_report(
     """Re-read all claimed row values and verify the mounted skill identity."""
 
     failures: list[CitationFailure] = []
+    if report.incident_id != broker.scope.id:
+        failures.append(
+            CitationFailure(
+                claim_text="Incident identity",
+                citation=Citation(
+                    id=report.incident_id,
+                    table="incidents",
+                    field="status",
+                    value="incident-scope-mismatch",
+                ),
+                reason="report incident does not match the broker scope",
+            )
+        )
     references = (report.skill.id, report.skill.version, report.skill.sha256)
     expected = (skill.id, skill.version, skill.sha256)
     if references != expected:
@@ -125,12 +148,12 @@ def verify_report(
                     CitationFailure(claim.text, citation, str(error))
                 )
                 continue
-            if canonical != citation.value:
+            if not _same_citation_value(canonical, citation.value):
                 failures.append(
                     CitationFailure(
                         claim.text,
                         citation,
-                        f"expected canonical value {canonical!r}",
+                        "cited value does not match the canonical row",
                     )
                 )
 

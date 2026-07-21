@@ -10,7 +10,7 @@ from pathlib import Path
 from spc_watchdog.event_log import EventLog
 from spc_watchdog.investigation_queue import InvestigationCoordinator
 from spc_watchdog.investigation_runner import InvestigationOutcome
-from spc_watchdog.report import VerificationResult
+from spc_watchdog.report import VerificationResult, parse_report_json
 
 
 def test_coordinator_serializes_runs_and_deduplicates_incidents(tmp_path: Path) -> None:
@@ -94,3 +94,72 @@ def test_snapshot_resumes_after_sequence_and_hides_unverified_report(
     assert [event["sequence"] for event in snapshot["events"]] == [2, 3, 4]
     assert snapshot["status"] == "failed"
     assert snapshot["report"] is None
+
+
+def test_verified_insufficient_evidence_stays_explicitly_inconclusive(
+    tmp_path: Path,
+) -> None:
+    """A cautious model result is visible evidence, never a root-cause verdict."""
+
+    def fake_runner(**kwargs) -> InvestigationOutcome:
+        report = parse_report_json(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "incident_id": kwargs["incident_id"],
+                    "skill": {
+                        "id": "ocap-mean-shift-v1",
+                        "version": 1,
+                        "sha256": "a" * 64,
+                    },
+                    "status": "insufficient-evidence",
+                    "claims": [
+                        {
+                            "text": "The available equipment evidence is clean.",
+                            "citations": [
+                                {
+                                    "id": "incident-1",
+                                    "table": "incidents",
+                                    "field": "status",
+                                    "value": "investigating",
+                                }
+                            ],
+                        }
+                    ],
+                    "root_cause": {
+                        "text": "No root cause can be concluded from available evidence.",
+                        "citations": [
+                            {
+                                "id": "incident-1",
+                                "table": "incidents",
+                                "field": "status",
+                                "value": "investigating",
+                            }
+                        ],
+                    },
+                }
+            )
+        )
+        (kwargs["run_directory"] / "report.json").write_text(
+            report.model_dump_json(), encoding="utf-8"
+        )
+        return InvestigationOutcome(
+            run_id=kwargs["run_id"],
+            attempts=1,
+            report=report,
+            verification=VerificationResult(True, (), 2),
+            run_directory=kwargs["run_directory"],
+        )
+
+    coordinator = InvestigationCoordinator(
+        database_path=tmp_path / "world.db",
+        runs_root=tmp_path / "runs",
+        runner=fake_runner,
+    )
+    coordinator.submit("incident-1")
+    coordinator.wait()
+
+    snapshot = coordinator.snapshot("incident-1")
+
+    assert snapshot["status"] == "inconclusive"
+    assert snapshot["report"]["status"] == "insufficient-evidence"

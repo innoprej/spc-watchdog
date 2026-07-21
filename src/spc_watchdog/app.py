@@ -157,7 +157,7 @@ def create_app(
         assert isinstance(delivered, list)
         if delivered:
             cursor = max(int(event["sequence"]) for event in delivered)
-        if snapshot["status"] in {"completed", "failed"}:
+        if snapshot["status"] in {"completed", "inconclusive", "failed"}:
             await websocket.close(code=1000)
             return
 
@@ -177,7 +177,7 @@ def create_app(
                         }
                     )
                     cursor = int(event["sequence"])
-                if update["status"] in {"completed", "failed"}:
+                if update["status"] in {"completed", "inconclusive", "failed"}:
                     await websocket.send_json(
                         {
                             "type": "investigation_finished",

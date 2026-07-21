@@ -146,6 +146,64 @@ def test_citation_verifier_rejects_unmounted_skill_digest(
     assert result.failures[0].claim_text == "OCAP skill identity"
 
 
+def test_citation_verifier_binds_report_to_broker_incident(
+    verification_context,
+) -> None:
+    broker, skill = verification_context
+    payload = _report(skill.sha256)
+    payload["incident_id"] = "incident-wrong"
+    report = parse_report_json(json.dumps(payload))
+
+    result = verify_report(report, broker=broker, skill=skill)
+
+    assert not result.passed
+    assert any(failure.claim_text == "Incident identity" for failure in result.failures)
+
+
+def test_citation_verifier_rejects_boolean_for_integer_field(
+    verification_context,
+) -> None:
+    broker, skill = verification_context
+    payload = _report(skill.sha256)
+    citation = payload["claims"][0]["citations"][0]  # type: ignore[index]
+    citation.update(
+        {
+            "id": "incident-s1-001",
+            "table": "incidents",
+            "field": "primary_rule",
+            "value": True,
+        }
+    )
+
+    result = verify_report(
+        parse_report_json(json.dumps(payload)), broker=broker, skill=skill
+    )
+
+    assert not result.passed
+
+
+def test_citation_verifier_normalizes_equivalent_json_numbers(
+    verification_context,
+) -> None:
+    broker, skill = verification_context
+    payload = _report(skill.sha256)
+    citation = payload["root_cause"]["citations"][0]  # type: ignore[index]
+    citation.update(
+        {
+            "id": "inspection-s1-002",
+            "table": "incoming_inspection",
+            "field": "upper_limit",
+            "value": 52,
+        }
+    )
+
+    result = verify_report(
+        parse_report_json(json.dumps(payload)), broker=broker, skill=skill
+    )
+
+    assert result.passed
+
+
 def test_report_schema_rejects_a_claim_without_citations(
     verification_context,
 ) -> None:

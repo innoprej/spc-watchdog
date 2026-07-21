@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import shutil
 import socket
 import subprocess
@@ -29,6 +30,7 @@ from .report import InvestigationReport, VerificationResult, parse_report_json, 
 from .skill_mount import SkillMount, load_skill_mount
 
 INVESTIGATOR_TEMPLATE = PROJECT_ROOT / "investigator"
+CODEX_ATTEMPT_TIMEOUT_SECONDS = 180.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +150,25 @@ def _drain_stderr(stream: Any, sink: list[str]) -> None:
         sink.append(line)
 
 
+def _drain_stdout(stream: Any, sink: queue.Queue[str | None]) -> None:
+    try:
+        for line in stream:
+            sink.put(line)
+    finally:
+        sink.put(None)
+
+
+def _stop_process(process: subprocess.Popen[str]) -> None:
+    """Bound shutdown even when a child ignores the first termination request."""
+
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+
+
 def _run_attempt(
     *,
     attempt: int,
@@ -160,6 +181,7 @@ def _run_attempt(
     raw_event_path: Path,
     retry_feedback: str | None,
     codex_executable: str,
+    attempt_timeout_seconds: float = CODEX_ATTEMPT_TIMEOUT_SECONDS,
 ) -> tuple[int, str]:
     output_path = runtime_workspace / f"report-attempt-{attempt}.json"
     contract = (runtime_workspace / "AGENTS.md").read_text(encoding="utf-8")
@@ -207,9 +229,26 @@ def _run_attempt(
         target=_drain_stderr, args=(process.stderr, stderr_lines), daemon=True
     )
     stderr_thread.start()
+    stdout_lines: queue.Queue[str | None] = queue.Queue()
+    stdout_thread = threading.Thread(
+        target=_drain_stdout, args=(process.stdout, stdout_lines), daemon=True
+    )
+    stdout_thread.start()
 
+    deadline = time.monotonic() + attempt_timeout_seconds
+    timed_out = False
     with raw_event_path.open("a", encoding="utf-8", newline="\n") as raw_stream:
-        for line in process.stdout:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timed_out = True
+                break
+            try:
+                line = stdout_lines.get(timeout=min(0.25, remaining))
+            except queue.Empty:
+                continue
+            if line is None:
+                break
             raw_stream.write(line)
             try:
                 raw = json.loads(line)
@@ -224,7 +263,36 @@ def _run_attempt(
             ):
                 event_log.append(event_type, {"attempt": attempt, **payload})
 
-    return_code = process.wait(timeout=30)
+    if timed_out:
+        _stop_process(process)
+        stdout_thread.join(timeout=5)
+        stderr_thread.join(timeout=5)
+        event_log.append(
+            "runtime_error",
+            {
+                "attempt": attempt,
+                "return_code": 124,
+                "reason": f"codex exec exceeded {attempt_timeout_seconds:g} seconds",
+            },
+        )
+        return 124, ""
+
+    try:
+        return_code = process.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        _stop_process(process)
+        stdout_thread.join(timeout=5)
+        stderr_thread.join(timeout=5)
+        event_log.append(
+            "runtime_error",
+            {
+                "attempt": attempt,
+                "return_code": 124,
+                "reason": "codex exec did not exit after closing its event stream",
+            },
+        )
+        return 124, ""
+    stdout_thread.join(timeout=5)
     stderr_thread.join(timeout=5)
     if return_code != 0:
         tail = "".join(stderr_lines)[-2000:]
@@ -239,9 +307,12 @@ def _run_attempt(
 
 
 def _verification_feedback(result: VerificationResult) -> str:
+    """Identify rejected citations without leaking canonical database values."""
+
     return "\n".join(
         f"- {failure.citation.table}/{failure.citation.id}."
-        f"{failure.citation.field}: {failure.reason}"
+        f"{failure.citation.field}: citation did not verify; re-query it through "
+        "the registered broker tool"
         for failure in result.failures
     )
 
@@ -337,7 +408,14 @@ def run_live_investigation(
                     )
                     event_log.append(
                         "status",
-                        {"state": "run_completed", "attempt": attempt},
+                        {
+                            "state": (
+                                "run_completed"
+                                if last_report.status == "concluded"
+                                else "run_inconclusive"
+                            ),
+                            "attempt": attempt,
+                        },
                     )
                     return InvestigationOutcome(
                         run_id, attempt, last_report, last_verification, run_directory

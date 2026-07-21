@@ -153,6 +153,7 @@ button, input { font: inherit; }
 .activity-panel, .report-panel { min-height: 350px; overflow: hidden; }
 .activity-panel.is-active { border-top-color: var(--amber); }
 .report-panel.is-verified { border-color: #536c3d; box-shadow: inset 0 0 70px rgba(169, 211, 110, 0.025); }
+.report-panel.is-inconclusive { border-color: #755c27; box-shadow: inset 0 0 70px rgba(244, 185, 66, 0.025); }
 .investigation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; min-height: 68px; padding: 16px 18px 13px; border-bottom: 1px solid var(--line); }
 .investigation-heading h2 { margin: 4px 0 0; font-size: 18px; }
 .run-state { color: var(--muted); border: 1px solid var(--line); padding: 6px 8px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -161,6 +162,8 @@ button, input { font: inherit; }
 .run-state.queued i, .run-state.investigating i { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 .run-state.completed { color: var(--steady); border-color: #536c3d; }
 .run-state.completed i { background: var(--steady); }
+.run-state.inconclusive { color: var(--amber); border-color: #755c27; }
+.run-state.inconclusive i { background: var(--amber); }
 .run-state.failed, .run-state.unavailable { color: var(--signal); border-color: var(--signal-deep); }
 .run-state.failed i, .run-state.unavailable i { background: var(--signal); }
 
@@ -186,6 +189,8 @@ button, input { font: inherit; }
 .report-content { height: 282px; overflow-y: auto; padding: 15px 18px 18px; scrollbar-color: #4b5549 #151916; }
 .root-cause { border-left: 3px solid var(--steady); background: #181e17; padding: 13px 14px; }
 .root-cause > span { color: var(--steady); font-size: 9px; font-weight: 800; letter-spacing: 0.1em; }
+.is-inconclusive .root-cause { border-left-color: var(--amber); }
+.is-inconclusive .root-cause > span { color: var(--amber); }
 .root-cause > p { margin: 7px 0 11px; color: var(--ink); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 650; line-height: 1.42; }
 .citation-row { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 3px; }
 .citation-row code { white-space: nowrap; color: #aeb8a8; border: 1px solid #394337; background: #111511; padding: 4px 6px; font-size: 8px; }

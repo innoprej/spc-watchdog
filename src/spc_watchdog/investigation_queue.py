@@ -89,7 +89,7 @@ class InvestigationCoordinator:
         report_path = state.run_directory / "report.json"
         report = (
             json.loads(report_path.read_text(encoding="utf-8"))
-            if report_path.is_file() and state.status == "completed"
+            if report_path.is_file() and state.status in {"completed", "inconclusive"}
             else None
         )
         return {
@@ -116,12 +116,15 @@ class InvestigationCoordinator:
                     run_id=state.run_id,
                 )
                 state.outcome = outcome
-                state.status = (
-                    "completed"
-                    if outcome.verification is not None
-                    and outcome.verification.passed
-                    else "failed"
-                )
+                if outcome.verification is not None and outcome.verification.passed:
+                    state.status = (
+                        "inconclusive"
+                        if outcome.report is not None
+                        and outcome.report.status == "insufficient-evidence"
+                        else "completed"
+                    )
+                else:
+                    state.status = "failed"
                 if state.status == "failed":
                     EventLog(
                         path=state.run_directory / "events.jsonl",

@@ -161,4 +161,9 @@ def build_codex_exec_environment(
     environment["USERPROFILE"] = str(os_home)
     environment.pop("HOMEDRIVE", None)
     environment.pop("HOMEPATH", None)
+    # Authentication comes only from the copied auth.json. Removing every
+    # documented override prevents the host from changing billing or state paths.
+    environment.pop("CODEX_API_KEY", None)
+    environment.pop("CODEX_ACCESS_TOKEN", None)
+    environment.pop("CODEX_SQLITE_HOME", None)
     return environment

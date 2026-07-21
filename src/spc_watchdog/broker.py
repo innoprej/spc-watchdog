@@ -168,6 +168,28 @@ class InvestigationBroker:
         allowed_fields = self._CITABLE_FIELDS.get(table)
         if allowed_fields is None or field not in allowed_fields:
             raise BrokerScopeError(f"field is not citable: {table}.{field}")
+        visible_ids: set[str]
+        if table == "incidents":
+            visible_ids = {self._scope.id}
+        elif table == "equipment_logs":
+            visible_ids = {
+                str(row["id"])
+                for row in self.query_equipment_logs(self._scope.id)
+            }
+        elif table == "lot_genealogy":
+            visible_ids = {
+                str(row["id"])
+                for row in self.query_material_lots(self._scope.id)
+            }
+        else:
+            genealogy = self.query_material_lots(self._scope.id)
+            visible_ids = {
+                str(row["id"])
+                for lot_id in {str(row["lot_id"]) for row in genealogy}
+                for row in self.query_incoming_inspection(self._scope.id, lot_id)
+            }
+        if row_id not in visible_ids:
+            raise BrokerScopeError(f"row is outside incident evidence: {table}/{row_id}")
         with self._connect() as connection:
             row = connection.execute(
                 f"SELECT scenario, {field} FROM {table} WHERE id = ?",

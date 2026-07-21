@@ -133,6 +133,9 @@ def test_investigator_environment_uses_isolated_codex_home(tmp_path: Path) -> No
             "PATH": "test-path",
             "HOMEDRIVE": "C:",
             "HOMEPATH": "\\Users\\example",
+            "CODEX_API_KEY": "must-not-pass-through",
+            "CODEX_ACCESS_TOKEN": "must-not-pass-through",
+            "CODEX_SQLITE_HOME": "must-not-pass-through",
         },
     )
 
