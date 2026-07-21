@@ -163,5 +163,18 @@ def normalize_codex_event(
         return (("hypothesis", {"text": text}),) if text else ()
     if source_type == "item.completed" and item_type == "agent_message":
         text = item.get("text", "")
-        return (("decision", {"text": text}),) if text else ()
+        if not text:
+            return ()
+        try:
+            message = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            return (("hypothesis", {"text": text}),)
+        if isinstance(message, dict) and isinstance(message.get("root_cause"), dict):
+            return (
+                (
+                    "decision",
+                    {"text": str(message["root_cause"].get("text", "Report completed"))},
+                ),
+            )
+        return (("hypothesis", {"text": text}),)
     return ()

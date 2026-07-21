@@ -54,3 +54,25 @@ def test_skill_load_requires_exact_body_and_digest_in_completed_mcp_event() -> N
         normalize_codex_event(completed, expected_skill=skill)[0][0]
         == "skill_load_rejected"
     )
+
+
+def test_agent_messages_distinguish_hypothesis_from_structured_decision() -> None:
+    skill = _skill()
+    hypothesis = {
+        "type": "item.completed",
+        "item": {"type": "agent_message", "text": "I will test equipment first."},
+    }
+    decision = {
+        "type": "item.completed",
+        "item": {
+            "type": "agent_message",
+            "text": '{"root_cause":{"text":"The lot is implicated."}}',
+        },
+    }
+
+    assert normalize_codex_event(hypothesis, expected_skill=skill) == (
+        ("hypothesis", {"text": "I will test equipment first."}),
+    )
+    assert normalize_codex_event(decision, expected_skill=skill) == (
+        ("decision", {"text": "The lot is implicated."}),
+    )
