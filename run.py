@@ -28,6 +28,9 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(description="Run SPC Watchdog.")
     parser.add_argument("--mode", choices=("live", "replay"), default="live")
+    parser.add_argument(
+        "--scenario", choices=("scenario-1", "scenario-2"), default="scenario-1"
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument(
@@ -60,13 +63,18 @@ def ensure_frontend() -> None:
     subprocess.run([npm, "run", "build"], cwd=frontend, check=True)
 
 
-def smoke_test(mode: str) -> None:
+def smoke_test(mode: str, scenario: str) -> None:
     """Prove that a credential-free server reaches its health endpoint."""
 
     port = _available_port()
     # A disposable DB lets live and replay smoke checks run concurrently in CI.
     with tempfile.TemporaryDirectory(prefix="spc-watchdog-smoke-") as temp_dir:
-        app = create_app(mode=mode, data_path=Path(temp_dir) / "world.db")
+        app = create_app(
+            mode=mode,
+            data_path=Path(temp_dir) / "world.db",
+            scenario=scenario,
+            fixture_root=ROOT / "fixtures",
+        )
         config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
         server = uvicorn.Server(config)
         thread = threading.Thread(target=server.run, daemon=True)
@@ -94,13 +102,15 @@ def main() -> None:
     args = parse_args()
     ensure_frontend()
     if args.smoke_test:
-        smoke_test(args.mode)
+        smoke_test(args.mode, args.scenario)
         return
 
     app = create_app(
         mode=args.mode,
         data_path=ROOT / "data" / "spc-watchdog.db",
         run_directory=ROOT / "runs" if args.mode == "live" else None,
+        scenario=args.scenario,
+        fixture_root=ROOT / "fixtures",
     )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 

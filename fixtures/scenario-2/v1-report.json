@@ -1,0 +1,171 @@
+{
+  "schema_version": "1.0",
+  "incident_id": "incident-s2-001",
+  "skill": {
+    "id": "ocap-trend-v1",
+    "version": 1,
+    "sha256": "e35167178122b8f63f180272e95f794547728216b9469b1a78390a274ee5f7eb"
+  },
+  "status": "concluded",
+  "claims": [
+    {
+      "text": "WATCH established a Rule 3 trend.",
+      "citations": [
+        {
+          "id": "incident-s2-001",
+          "table": "incidents",
+          "field": "primary_rule",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "text": "The recent-adjustment or maintenance hypothesis is eliminated by passed equipment checks and the explicit absence of an alarm or adjustment during the developing trend.",
+      "citations": [
+        {
+          "id": "equipment-s2-001",
+          "table": "equipment_logs",
+          "field": "status",
+          "value": "pass"
+        },
+        {
+          "id": "equipment-s2-002",
+          "table": "equipment_logs",
+          "field": "detail",
+          "value": "No alarm or adjustment recorded during the developing trend."
+        }
+      ]
+    },
+    {
+      "text": "The material-transition hypothesis is eliminated because the same lot had been active since simulation hour 0 and had not been retired.",
+      "citations": [
+        {
+          "id": "genealogy-s2-001",
+          "table": "lot_genealogy",
+          "field": "introduced_sim_hour",
+          "value": 0
+        },
+        {
+          "id": "genealogy-s2-001",
+          "table": "lot_genealogy",
+          "field": "retired_sim_hour",
+          "value": null
+        }
+      ]
+    },
+    {
+      "text": "Incoming hardness evidence does not implicate the active lot because its measured value was accepted.",
+      "citations": [
+        {
+          "id": "inspection-s2-001",
+          "table": "incoming_inspection",
+          "field": "measured_value",
+          "value": 48.1
+        },
+        {
+          "id": "inspection-s2-001",
+          "table": "incoming_inspection",
+          "field": "disposition",
+          "value": "accepted"
+        }
+      ]
+    },
+    {
+      "text": "The tool-life hypothesis is implicated: cycle count increased from 8300 at simulation hour 18 to 9980 at incident hour 29, when the tool was marked replacement-due against a 10000-cycle limit.",
+      "citations": [
+        {
+          "id": "tool-life-s2-001",
+          "table": "tool_life",
+          "field": "cycle_count",
+          "value": 8300
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "sim_hour",
+          "value": 29
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "cycle_count",
+          "value": 9980
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "replacement_limit",
+          "value": 10000
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "status",
+          "value": "replacement-due"
+        }
+      ]
+    }
+  ],
+  "root_cause": {
+    "text": "The Rule 3 trend is attributed to the press-07 tool reaching replacement-due condition near its cycle limit.",
+    "citations": [
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "equipment_id",
+        "value": "press-07"
+      },
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "cycle_count",
+        "value": 9980
+      },
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "replacement_limit",
+        "value": 10000
+      },
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "status",
+        "value": "replacement-due"
+      }
+    ]
+  },
+  "skill_change_proposal": {
+    "base_version_id": "ocap-trend-v1",
+    "rationale": {
+      "text": "Tool-life evidence was decisive but was not explicitly prescribed by the loaded OCAP; it showed press-07 at 9980 cycles against a 10000-cycle limit with replacement due.",
+      "citations": [
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "equipment_id",
+          "value": "press-07"
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "cycle_count",
+          "value": 9980
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "replacement_limit",
+          "value": 10000
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "status",
+          "value": "replacement-due"
+        }
+      ]
+    },
+    "proposed_step": "Immediately after checking recent equipment records, query tool-life evidence for the affected equipment; if the tool is at or near its replacement limit, evaluate that hypothesis before branching to material genealogy and incoming inspection."
+  }
+}

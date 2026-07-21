@@ -1,0 +1,158 @@
+{
+  "schema_version": "1.0",
+  "incident_id": "incident-s1-001",
+  "skill": {
+    "id": "ocap-mean-shift-v1",
+    "version": 1,
+    "sha256": "274adc29de2f86af64cbcf0cc481ce21ffaab3a4d3a17f1c66c8b19c177ffc34"
+  },
+  "status": "concluded",
+  "claims": [
+    {
+      "text": "WATCH opened the incident at simulation hour 26 under primary rule 1.",
+      "citations": [
+        {
+          "id": "incident-s1-001",
+          "table": "incidents",
+          "field": "opened_sim_hour",
+          "value": 26
+        },
+        {
+          "id": "incident-s1-001",
+          "table": "incidents",
+          "field": "primary_rule",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "text": "Recent equipment evidence eliminates press-07 as the supported cause: its hour-18 preventive check passed with pressure, alignment, and vibration within standard, and its hour-25 operator check passed with no alarm, adjustment, or unplanned stop.",
+      "citations": [
+        {
+          "id": "equipment-s1-001",
+          "table": "equipment_logs",
+          "field": "status",
+          "value": "pass"
+        },
+        {
+          "id": "equipment-s1-001",
+          "table": "equipment_logs",
+          "field": "detail",
+          "value": "Pressure, alignment, and vibration checks within standard."
+        },
+        {
+          "id": "equipment-s1-002",
+          "table": "equipment_logs",
+          "field": "status",
+          "value": "pass"
+        },
+        {
+          "id": "equipment-s1-002",
+          "table": "equipment_logs",
+          "field": "detail",
+          "value": "No alarm, adjustment, or unplanned stop recorded."
+        }
+      ]
+    },
+    {
+      "text": "The material transition preceded the signal: lot-s1-a retired at hour 24, lot-s1-b was introduced at hour 24, and the incident opened at hour 26.",
+      "citations": [
+        {
+          "id": "genealogy-s1-001",
+          "table": "lot_genealogy",
+          "field": "retired_sim_hour",
+          "value": 24
+        },
+        {
+          "id": "genealogy-s1-002",
+          "table": "lot_genealogy",
+          "field": "introduced_sim_hour",
+          "value": 24
+        },
+        {
+          "id": "incident-s1-001",
+          "table": "incidents",
+          "field": "opened_sim_hour",
+          "value": 26
+        }
+      ]
+    },
+    {
+      "text": "Incoming inspection confirms lot-s1-b had hardness 51.8 against limits of 44.0\u201352.0 and was dispositioned accepted-marginal.",
+      "citations": [
+        {
+          "id": "inspection-s1-002",
+          "table": "incoming_inspection",
+          "field": "lot_id",
+          "value": "lot-s1-b"
+        },
+        {
+          "id": "inspection-s1-002",
+          "table": "incoming_inspection",
+          "field": "measured_value",
+          "value": 51.8
+        },
+        {
+          "id": "inspection-s1-002",
+          "table": "incoming_inspection",
+          "field": "lower_limit",
+          "value": 44
+        },
+        {
+          "id": "inspection-s1-002",
+          "table": "incoming_inspection",
+          "field": "upper_limit",
+          "value": 52
+        },
+        {
+          "id": "inspection-s1-002",
+          "table": "incoming_inspection",
+          "field": "disposition",
+          "value": "accepted-marginal"
+        }
+      ]
+    }
+  ],
+  "root_cause": {
+    "text": "The implicated root cause is the transition to accepted-marginal lot-s1-b at hour 24, whose incoming hardness measured 51.8 near the 52.0 upper limit, preceding the incident at hour 26.",
+    "citations": [
+      {
+        "id": "genealogy-s1-002",
+        "table": "lot_genealogy",
+        "field": "lot_id",
+        "value": "lot-s1-b"
+      },
+      {
+        "id": "genealogy-s1-002",
+        "table": "lot_genealogy",
+        "field": "introduced_sim_hour",
+        "value": 24
+      },
+      {
+        "id": "inspection-s1-002",
+        "table": "incoming_inspection",
+        "field": "measured_value",
+        "value": 51.8
+      },
+      {
+        "id": "inspection-s1-002",
+        "table": "incoming_inspection",
+        "field": "upper_limit",
+        "value": 52
+      },
+      {
+        "id": "inspection-s1-002",
+        "table": "incoming_inspection",
+        "field": "disposition",
+        "value": "accepted-marginal"
+      },
+      {
+        "id": "incident-s1-001",
+        "table": "incidents",
+        "field": "opened_sim_hour",
+        "value": 26
+      }
+    ]
+  },
+  "skill_change_proposal": null
+}

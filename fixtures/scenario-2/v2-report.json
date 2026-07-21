@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "incident_id": "incident-s2-001",
+  "skill": {
+    "id": "ocap-trend-v2",
+    "version": 2,
+    "sha256": "dddccfe8b66e0f22805276816f24501e7a547abe10bd98cb7c724d39518917e7"
+  },
+  "status": "concluded",
+  "claims": [
+    {
+      "text": "WATCH established a Rule 3 trend for the incident.",
+      "citations": [
+        {
+          "id": "incident-s2-001",
+          "table": "incidents",
+          "field": "primary_rule",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "text": "A recent equipment adjustment or maintenance event is eliminated: the developing trend had no recorded alarm or adjustment.",
+      "citations": [
+        {
+          "id": "equipment-s2-002",
+          "table": "equipment_logs",
+          "field": "detail",
+          "value": "No alarm or adjustment recorded during the developing trend."
+        },
+        {
+          "id": "equipment-s2-002",
+          "table": "equipment_logs",
+          "field": "status",
+          "value": "pass"
+        }
+      ]
+    },
+    {
+      "text": "Tool life is implicated: press-07 reached 9,980 cycles against a 10,000-cycle replacement limit and was marked replacement-due when the incident opened.",
+      "citations": [
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "cycle_count",
+          "value": 9980
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "replacement_limit",
+          "value": 10000
+        },
+        {
+          "id": "tool-life-s2-002",
+          "table": "tool_life",
+          "field": "status",
+          "value": "replacement-due"
+        },
+        {
+          "id": "incident-s2-001",
+          "table": "incidents",
+          "field": "opened_sim_hour",
+          "value": 29
+        }
+      ]
+    }
+  ],
+  "root_cause": {
+    "text": "The implicated root cause is an end-of-life tool on press-07: its cycle count was within 20 cycles of the replacement limit and its status was replacement-due.",
+    "citations": [
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "equipment_id",
+        "value": "press-07"
+      },
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "cycle_count",
+        "value": 9980
+      },
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "replacement_limit",
+        "value": 10000
+      },
+      {
+        "id": "tool-life-s2-002",
+        "table": "tool_life",
+        "field": "status",
+        "value": "replacement-due"
+      }
+    ]
+  },
+  "skill_change_proposal": null
+}

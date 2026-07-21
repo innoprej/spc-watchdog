@@ -13,8 +13,10 @@ from fastapi.staticfiles import StaticFiles
 
 from .broker import open_incident
 from .investigation_queue import InvestigationCoordinator
+from .learning import approve_proposal, reject_proposal
+from .replay import ReplayCoordinator
 from .stream import SNAPSHOT_COUNT, build_stream_events
-from .world import create_world, derive_control_limits, load_measurements
+from .world import SCENARIO_2_ID, create_world, derive_control_limits, load_measurements
 
 Mode = Literal["live", "replay"]
 SIM_RATE_LABEL = "1 real second = 1 simulated hour"
@@ -25,18 +27,29 @@ def create_app(
     mode: Mode,
     data_path: Path,
     run_directory: Path | None = None,
-    coordinator: InvestigationCoordinator | None = None,
+    coordinator: InvestigationCoordinator | ReplayCoordinator | None = None,
+    scenario: str = "scenario-1",
+    fixture_root: Path | None = None,
 ) -> FastAPI:
     """Create an isolated application instance and rebuild its synthetic world."""
 
-    summary = create_world(data_path)
-    measurements = load_measurements(data_path)
+    if scenario not in {"scenario-1", SCENARIO_2_ID}:
+        raise ValueError(f"unsupported scenario: {scenario}")
+    summary = create_world(data_path, scenario)
+    measurements = load_measurements(data_path, scenario)
     center, sigma = derive_control_limits(measurements)
     events = build_stream_events(measurements)
     app = FastAPI(title="SPC Watchdog", version="0.1.0")
-    owns_coordinator = mode == "live" and coordinator is None and run_directory is not None
+    owns_coordinator = coordinator is None and (
+        mode == "replay" or run_directory is not None
+    )
     active_coordinator = coordinator
-    if owns_coordinator:
+    if mode == "replay" and active_coordinator is None:
+        active_coordinator = ReplayCoordinator(
+            fixture_root=fixture_root or Path(__file__).resolve().parents[2] / "fixtures",
+            scenario=scenario,
+        )
+    elif owns_coordinator:
         assert run_directory is not None
         active_coordinator = InvestigationCoordinator(
             database_path=data_path,
@@ -79,8 +92,41 @@ def create_app(
             "center": center,
             "sigma": sigma,
             "investigator_status": investigator_status,
+            "replay_speed": (
+                active_coordinator.speed
+                if isinstance(active_coordinator, ReplayCoordinator)
+                else None
+            ),
             "initial_events": events[:SNAPSHOT_COUNT],
         }
+
+    @app.post("/api/replay/speed/{speed}")
+    async def replay_speed(speed: int) -> dict[str, object]:
+        if not isinstance(active_coordinator, ReplayCoordinator):
+            raise HTTPException(status_code=409, detail="speed applies only to replay")
+        try:
+            active_coordinator.set_speed(speed)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return {"schema_version": "1.0", "speed": speed}
+
+    @app.post("/api/proposals/{proposal_id}/approve")
+    async def approve_skill_change(proposal_id: str) -> dict[str, object]:
+        try:
+            if isinstance(active_coordinator, ReplayCoordinator):
+                return active_coordinator.approve(proposal_id)
+            return approve_proposal(data_path, proposal_id).as_dict()
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.post("/api/proposals/{proposal_id}/reject")
+    async def reject_skill_change(proposal_id: str) -> dict[str, object]:
+        try:
+            if isinstance(active_coordinator, ReplayCoordinator):
+                return active_coordinator.reject(proposal_id)
+            return reject_proposal(data_path, proposal_id).as_dict()
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
 
     @app.get("/api/investigations/{incident_id}")
     async def investigation_snapshot(
@@ -113,16 +159,22 @@ def create_app(
         )
         try:
             for event in events[SNAPSHOT_COUNT:]:
-                await asyncio.sleep(1.0)
+                replay_speed_value = (
+                    active_coordinator.speed
+                    if isinstance(active_coordinator, ReplayCoordinator)
+                    else 1
+                )
+                await asyncio.sleep(1.0 / replay_speed_value)
                 incident = event.get("incident")
                 if active_coordinator is not None and isinstance(incident, dict):
-                    open_incident(
-                        data_path,
-                        incident_id=str(incident["id"]),
-                        scenario=summary.scenario,
-                        opened_sim_hour=int(incident["opened_sim_hour"]),
-                        primary_rule=int(incident["primary_rule"]),
-                    )
+                    if mode == "live":
+                        open_incident(
+                            data_path,
+                            incident_id=str(incident["id"]),
+                            scenario=summary.scenario,
+                            opened_sim_hour=int(incident["opened_sim_hour"]),
+                            primary_rule=int(incident["primary_rule"]),
+                        )
                     active_coordinator.submit(str(incident["id"]))
                 await websocket.send_json(event)
             await websocket.close(code=1000)
@@ -184,6 +236,9 @@ def create_app(
                             "incident_id": incident_id,
                             "status": update["status"],
                             "report": update["report"],
+                            "proposal": update.get("proposal"),
+                            "replay_phase": update.get("replay_phase"),
+                            "active_skill_version": update.get("active_skill_version"),
                         }
                     )
                     await websocket.close(code=1000)

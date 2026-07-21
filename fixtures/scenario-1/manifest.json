@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "scenario": "scenario-1",
+  "incident_id": "incident-s1-001",
+  "initial_phase": "investigation",
+  "active_skill_version": 1,
+  "phases": {
+    "investigation": {
+      "event_log": "events.jsonl",
+      "report": "report.json",
+      "proposal": null
+    }
+  }
+}

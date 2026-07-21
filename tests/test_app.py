@@ -16,6 +16,10 @@ from spc_watchdog.event_log import EventLog
 from spc_watchdog.investigation_queue import InvestigationCoordinator
 from spc_watchdog.investigation_runner import InvestigationOutcome
 from spc_watchdog.report import VerificationResult
+from spc_watchdog.replay import ReplayCoordinator
+from spc_watchdog import replay as replay_module
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def health_json(app: FastAPI) -> dict[str, object]:
@@ -56,7 +60,7 @@ def test_live_health_reports_missing_codex_cli(
 def test_watch_socket_reaches_the_first_rule_one_incident(
     monkeypatch: MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Lock the dashboard contract from its 20-point snapshot through the red verdict."""
+    """Lock the dashboard contract from its 5-point snapshot through the red verdict."""
 
     async def no_delay(_: float) -> None:
         return None
@@ -68,8 +72,8 @@ def test_watch_socket_reaches_the_first_rule_one_incident(
         with client.websocket_connect("/ws/watch") as websocket:
             snapshot = websocket.receive_json()
             assert snapshot["type"] == "snapshot"
-            assert len(snapshot["events"]) == 20
-            events = [websocket.receive_json() for _ in range(7)]
+            assert len(snapshot["events"]) == 5
+            events = [websocket.receive_json() for _ in range(22)]
 
     verdict = events[-1]
     assert verdict["sequence"] == 26
@@ -123,7 +127,7 @@ def test_investigation_socket_resumes_without_duplicates_and_returns_verified_re
     with TestClient(app) as client:
         with client.websocket_connect("/ws/watch") as watch:
             watch.receive_json()
-            streamed = [watch.receive_json() for _ in range(7)]
+            streamed = [watch.receive_json() for _ in range(22)]
         assert streamed[-1]["incident"]["id"] == "incident-s1-001"
         coordinator.wait()
 
@@ -141,3 +145,32 @@ def test_investigation_socket_resumes_without_duplicates_and_returns_verified_re
         assert snapshot["type"] == "investigation_snapshot"
         assert [event["sequence"] for event in snapshot["events"]] == [3, 4]
         assert snapshot["report"]["status"] == "concluded"
+
+
+def test_replay_api_changes_speed_and_approves_v2(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    """The browser controls operate without credentials or a live investigator."""
+
+    now = [100.0]
+    monkeypatch.setattr(replay_module.time, "monotonic", lambda: now[0])
+    coordinator = ReplayCoordinator(
+        fixture_root=ROOT / "fixtures", scenario="scenario-2"
+    )
+    coordinator.submit("incident-s2-001")
+    now[0] = 200.0
+    app = app_module.create_app(
+        mode="replay",
+        scenario="scenario-2",
+        data_path=tmp_path / "replay.db",
+        coordinator=coordinator,
+    )
+
+    with TestClient(app) as client:
+        speed = client.post("/api/replay/speed/4")
+        approved = client.post(
+            "/api/proposals/proposal-incident-s2-001-v1/approve"
+        )
+
+    assert speed.json()["speed"] == 4
+    assert approved.json()["active_version_id"] == "ocap-trend-v2"

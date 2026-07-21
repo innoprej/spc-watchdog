@@ -1,0 +1,37 @@
+{
+  "id": "proposal-incident-s2-001-v1",
+  "incident_id": "incident-s2-001",
+  "base_version_id": "ocap-trend-v1",
+  "status": "pending",
+  "rationale": "Tool-life evidence was decisive but was not explicitly prescribed by the loaded OCAP; it showed press-07 at 9980 cycles against a 10000-cycle limit with replacement due.",
+  "evidence": [
+    {
+      "id": "tool-life-s2-002",
+      "table": "tool_life",
+      "field": "equipment_id",
+      "value": "press-07"
+    },
+    {
+      "id": "tool-life-s2-002",
+      "table": "tool_life",
+      "field": "cycle_count",
+      "value": 9980
+    },
+    {
+      "id": "tool-life-s2-002",
+      "table": "tool_life",
+      "field": "replacement_limit",
+      "value": 10000
+    },
+    {
+      "id": "tool-life-s2-002",
+      "table": "tool_life",
+      "field": "status",
+      "value": "replacement-due"
+    }
+  ],
+  "proposed_step": "Immediately after checking recent equipment records, query tool-life evidence for the affected equipment; if the tool is at or near its replacement limit, evaluate that hypothesis before branching to material genealogy and incoming inspection.",
+  "patch": "--- trend-ocap/SKILL.md@v1\n+++ trend-ocap/SKILL.md@v2\n@@ -5,10 +5,11 @@\n \n # Trend OCAP\n \n-This is OCAP version 1 for deterministic trend incidents.\n+This is OCAP version 2 for deterministic trend incidents.\n \n 1. Load `chart_context` and state the Rule 3 trend already established by WATCH.\n 2. Check recent equipment records first. Eliminate a recent adjustment or maintenance event only when returned rows support that conclusion.\n+   - Learned v2 step: Immediately after checking recent equipment records, query tool-life evidence for the affected equipment; if the tool is at or near its replacement limit, evaluate that hypothesis before branching to material genealogy and incoming inspection.\n 3. If recent equipment events do not explain the trend, inspect material genealogy and confirm any suspect lot with incoming inspection.\n 4. If those checks do not explain the trend, use professional judgment and the remaining registered evidence sources.\n 5. Conclude with separate cited claims for eliminated and implicated hypotheses.\n",
+  "proposed_body": "---\nname: trend-ocap\ndescription: Investigate a deterministic SPC trend through recent equipment and material evidence.\n---\n\n# Trend OCAP\n\nThis is OCAP version 2 for deterministic trend incidents.\n\n1. Load `chart_context` and state the Rule 3 trend already established by WATCH.\n2. Check recent equipment records first. Eliminate a recent adjustment or maintenance event only when returned rows support that conclusion.\n   - Learned v2 step: Immediately after checking recent equipment records, query tool-life evidence for the affected equipment; if the tool is at or near its replacement limit, evaluate that hypothesis before branching to material genealogy and incoming inspection.\n3. If recent equipment events do not explain the trend, inspect material genealogy and confirm any suspect lot with incoming inspection.\n4. If those checks do not explain the trend, use professional judgment and the remaining registered evidence sources.\n5. Conclude with separate cited claims for eliminated and implicated hypotheses.\n\nIf a registered evidence source proves important but this playbook did not direct you to it, propose one concise new playbook step grounded in the returned rows. Place that source immediately after the nearest necessary preliminary check and before unrelated evidence branches so an approved version avoids unnecessary calls. Do not name a cause until a registered tool returns it.\n",
+  "approved_version_id": null
+}
