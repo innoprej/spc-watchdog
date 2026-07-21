@@ -8,7 +8,7 @@ This repository is being built for OpenAI Build Week in the Work & Productivity 
 
 ## Current build status
 
-Phase 2 is working end to end for Scenario 1:
+Phase 3 is working end to end for both seeded scenarios:
 
 - A fixed-seed SQLite factory produces AR(1) measurements and a discoverable material-lot shift.
 - Typed Python code evaluates Nelson Rules 1–3. The model never decides whether a rule fired.
@@ -19,9 +19,10 @@ Phase 2 is working end to end for Scenario 1:
 - The investigator eliminates clean equipment, finds the two-hour lot transition, and confirms the accepted-marginal incoming inspection without the prompt or playbook naming that answer.
 - The report renders only after every cited table, row, field, and value passes a fresh SQLite lookup. One verifier-informed retry is visible and an exhausted failure stays out of the official verdict.
 - Sequence-numbered JSONL lets a reconnect resume without duplicating acknowledged activity.
-- Replay mode boots without Codex credentials.
-
-Scenario 2, the human-approved playbook change, and committed full replay fixtures remain Phase 3 work. They are not claimed as complete yet.
+- Scenario 2 deterministically triggers a Rule 3 trend, eliminates recent equipment events and material, and implicates replacement-due tool wear through registered tool-life evidence.
+- The v1 investigator files a cited skill-change proposal. Human approval atomically creates immutable v2, and that active version survives reset.
+- The v2 re-run loads its exact body through MCP and reaches tool-life in four calls instead of six, before either irrelevant material tool.
+- Tracked, sanitized fixtures reproduce both investigations without credentials at 1×, 2×, or 4× while the `DETERMINISTIC REPLAY` badge remains visible.
 
 ## Product architecture
 
@@ -68,6 +69,12 @@ python -m pip install -e ".[dev]"
 python run.py --mode replay
 ```
 
+The default command opens Scenario 1. Run the closing LEARN flow with:
+
+```bash
+python run.py --mode replay --scenario scenario-2
+```
+
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Replay requires no credentials and always displays `DETERMINISTIC REPLAY`.
 
 The live WATCH + INVESTIGATE path can be started with:
@@ -75,6 +82,8 @@ The live WATCH + INVESTIGATE path can be started with:
 ```bash
 python run.py --mode live
 ```
+
+Add `--scenario scenario-2` to run the live tool-wear and playbook-improvement case.
 
 Live investigation requires an installed, authenticated Codex CLI with access to GPT-5.6 Sol. The UI reports a missing CLI explicitly; it never silently substitutes replay. The run uses the user's Codex login and credits rather than an API key.
 
@@ -113,9 +122,9 @@ In the finished product, each incident launches a separate Codex investigator on
 ## Honest limitations
 
 - All factory data is synthetic and the simulation clock is compressed.
-- Scenario 1 proves the complete WATCH and INVESTIGATE path; the LEARN proposal and approval flow is not implemented yet.
+- The two scenarios are fixed demonstrations, not a general scenario-authoring product.
 - The activity feed labels an OCAP skill load only when a completed MCP result contains the exact skill body and digest. The runtime copies the public-safe contract into a disposable workspace, isolates `CODEX_HOME` to authentication only, disables shell and host-context discovery, and leaves `read-only` enabled as defense in depth.
-- Replay currently proves credential-free boot and deterministic WATCH playback. Committed investigation fixtures, report playback, and the 1x/2x/4x control arrive in Phase 3.
+- Replay uses sanitized canonical live-run artifacts. It reproduces agent activity and human approval but does not launch Codex or mutate the live factory database.
 - The CLI reports token usage but not a per-run currency charge, so this project does not claim a precise Codex-credit cost.
 
 ## License

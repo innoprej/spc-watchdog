@@ -44,6 +44,7 @@ type Snapshot = {
   center: number;
   sigma: number;
   investigator_status: string;
+  replay_speed?: number | null;
   events: MeasurementEvent[];
 };
 
@@ -76,12 +77,25 @@ type InvestigationReport = {
   root_cause: Claim;
 };
 
+type SkillProposal = {
+  id: string;
+  base_version_id: string;
+  status: string;
+  rationale: string;
+  evidence: Citation[];
+  proposed_step: string;
+  patch: string;
+};
+
 type InvestigationMessage = {
   type: string;
   status?: string;
   events?: RunEvent[];
   event?: RunEvent;
   report?: InvestigationReport | null;
+  proposal?: SkillProposal | null;
+  replay_phase?: string | null;
+  active_skill_version?: number;
 };
 
 const WIDTH = 940;
@@ -156,6 +170,13 @@ function eventPresentation(event: RunEvent, rejectedAttempts: Set<number>) {
       label: rejected ? "REJECTED MODEL CONCLUSION" : "MODEL CONCLUSION · PENDING GATE",
       detail: text,
       tone: rejected ? "rejected" : "decision",
+    };
+  }
+  if (event.type === "proposal") {
+    return {
+      label: "SKILL CHANGE PROPOSED",
+      detail: `${String(payload.base_version_id)} · human approval required`,
+      tone: "proposal",
     };
   }
   if (event.type === "runtime_error" || event.type === "skill_load_rejected") {
@@ -273,20 +294,31 @@ export default function App() {
   const [investigationStatus, setInvestigationStatus] = useState("standing-by");
   const [investigationConnection, setInvestigationConnection] = useState<"idle" | "connecting" | "online" | "complete" | "offline">("idle");
   const [report, setReport] = useState<InvestigationReport | null>(null);
+  const [proposal, setProposal] = useState<SkillProposal | null>(null);
+  const [replaySpeed, setReplaySpeed] = useState(1);
+  const [replayPhase, setReplayPhase] = useState<string | null>(null);
+  const [activeSkillVersion, setActiveSkillVersion] = useState(1);
+  const [approvalState, setApprovalState] = useState("pending-review");
+  const [investigationGeneration, setInvestigationGeneration] = useState(0);
   const lastInvestigationSequence = useRef(0);
   const activityFeed = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${protocol}://${window.location.host}/ws/watch`);
+    let streamErrored = false;
     socket.onopen = () => setStreamStatus("online");
-    socket.onclose = (event) => setStreamStatus(event.wasClean ? "complete" : "offline");
-    socket.onerror = () => setStreamStatus("offline");
+    socket.onclose = () => setStreamStatus(streamErrored ? "offline" : "complete");
+    socket.onerror = () => {
+      streamErrored = true;
+      setStreamStatus("offline");
+    };
     socket.onmessage = (message) => {
       const payload = JSON.parse(message.data) as Snapshot | MeasurementEvent;
       if (payload.type === "snapshot") {
         const { events: initial, type: _type, ...metadata } = payload;
         setSnapshot(metadata);
+        setReplaySpeed(metadata.replay_speed ?? 1);
         setEvents(initial);
       } else {
         setEvents((current) => [...current, payload]);
@@ -305,7 +337,7 @@ export default function App() {
   const mode = snapshot?.mode ?? "live";
 
   useEffect(() => {
-    if (!incident?.id || mode !== "live") return;
+    if (!incident?.id) return;
     let cancelled = false;
     let finished = false;
     let reconnectTimer: number | undefined;
@@ -313,6 +345,7 @@ export default function App() {
     lastInvestigationSequence.current = 0;
     setInvestigationEvents([]);
     setReport(null);
+    setProposal(null);
     setInvestigationStatus("queued");
 
     const connect = () => {
@@ -338,6 +371,9 @@ export default function App() {
           });
           setInvestigationStatus(payload.status ?? "investigating");
           if (payload.report) setReport(payload.report);
+          if (payload.proposal) setProposal(payload.proposal);
+          if (payload.replay_phase !== undefined) setReplayPhase(payload.replay_phase ?? null);
+          if (payload.active_skill_version) setActiveSkillVersion(payload.active_skill_version);
           finished = ["completed", "inconclusive", "failed"].includes(
             payload.status ?? "",
           );
@@ -351,6 +387,9 @@ export default function App() {
         } else if (payload.type === "investigation_finished") {
           setInvestigationStatus(payload.status ?? "complete");
           if (payload.report) setReport(payload.report);
+          if (payload.proposal) setProposal(payload.proposal);
+          if (payload.replay_phase !== undefined) setReplayPhase(payload.replay_phase ?? null);
+          if (payload.active_skill_version) setActiveSkillVersion(payload.active_skill_version);
           finished = true;
         } else if (
           payload.type === "investigation_unavailable" ||
@@ -372,7 +411,40 @@ export default function App() {
       activeSocket?.close();
       if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
     };
-  }, [incident?.id, mode]);
+  }, [incident?.id, investigationGeneration]);
+
+  const changeReplaySpeed = async (speed: number) => {
+    const response = await fetch(`/api/replay/speed/${speed}`, { method: "POST" });
+    if (response.ok) setReplaySpeed(speed);
+  };
+
+  const decideProposal = async (decision: "approve" | "reject") => {
+    if (!proposal) return;
+    setApprovalState(decision === "approve" ? "approving" : "rejecting");
+    const response = await fetch(`/api/proposals/${proposal.id}/${decision}`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      setApprovalState("failed");
+      return;
+    }
+    const result = await response.json() as Record<string, unknown>;
+    setApprovalState(String(result.status ?? decision));
+    setProposal((current) => current
+      ? { ...current, status: String(result.status ?? decision) }
+      : current);
+    if (decision === "approve") {
+      setActiveSkillVersion(2);
+      if (mode === "replay") {
+        lastInvestigationSequence.current = 0;
+        setInvestigationEvents([]);
+        setReport(null);
+        setProposal(null);
+        setReplayPhase("v2");
+        setInvestigationGeneration((current) => current + 1);
+      }
+    }
+  };
 
   const verifiedEvent = [...investigationEvents]
     .reverse()
@@ -402,6 +474,20 @@ export default function App() {
         </div>
         <div className="status-strip">
           {mode === "replay" && <span className="mode-badge replay">DETERMINISTIC REPLAY</span>}
+          {mode === "replay" && (
+            <div className="speed-control" aria-label="Replay speed">
+              {[1, 2, 4].map((speed) => (
+                <button
+                  className={replaySpeed === speed ? "active" : ""}
+                  key={speed}
+                  onClick={() => void changeReplaySpeed(speed)}
+                  type="button"
+                >
+                  {speed}×
+                </button>
+              ))}
+            </div>
+          )}
           <span className="mode-badge simulation">SIMULATION</span>
           <span className={`connection ${streamStatus === "online" || streamStatus === "complete" ? "online" : ""}`}>
             <i /> {streamStatus === "online" ? "STREAM ONLINE" : streamStatus === "complete" ? "STREAM COMPLETE" : streamStatus === "offline" ? "STREAM OFFLINE" : "CONNECTING"}
@@ -454,7 +540,7 @@ export default function App() {
         <article className={`activity-panel ${alert ? "is-active" : ""}`}>
           <div className="investigation-heading">
             <div>
-              <p className="eyebrow">INVESTIGATE / LIVE CODEX TRACE</p>
+              <p className="eyebrow">INVESTIGATE / {mode === "replay" ? "RECORDED CODEX TRACE" : "LIVE CODEX TRACE"}</p>
               <h2>Agent activity</h2>
             </div>
             <div className={`run-state ${investigationStatus}`}>
@@ -534,18 +620,75 @@ export default function App() {
               <div>⌁</div>
               <h3>Nothing renders before verification.</h3>
               <p>
-                Every model-supplied table, row, field, and value is re-read from SQLite.
-                A failed citation triggers one visible retry, then fails closed.
+                In live mode, every model-supplied table, row, field, and value is re-read
+                from SQLite. Replay renders only the recorded gate result.
               </p>
             </div>
           )}
         </aside>
       </section>
 
+      {(proposal || activeSkillVersion > 1) && (
+        <section className={`learn-panel ${activeSkillVersion > 1 ? "is-approved" : ""}`}>
+          <div className="learn-summary">
+            <p className="eyebrow">LEARN / HUMAN-GATED OCAP CHANGE</p>
+            <h2>
+              {activeSkillVersion > 1
+                ? "OCAP v2 active — next investigation starts smarter"
+                : "The investigator found a gap in its playbook"}
+            </h2>
+            {proposal ? (
+              <>
+                <p>{proposal.rationale}</p>
+                <div className="proposal-meta">
+                  <span>BASE {proposal.base_version_id}</span>
+                  <span>{proposal.evidence.length} VERIFIED EVIDENCE ROWS</span>
+                  <span>STATUS {proposal.status.toUpperCase()}</span>
+                </div>
+                <div className="approval-actions">
+                  <button
+                    className="approve-button"
+                    disabled={proposal.status !== "pending" || approvalState === "approving"}
+                    onClick={() => void decideProposal("approve")}
+                    type="button"
+                  >
+                    APPROVE &amp; ACTIVATE V2
+                  </button>
+                  <button
+                    className="reject-button"
+                    disabled={proposal.status !== "pending" || approvalState === "rejecting"}
+                    onClick={() => void decideProposal("reject")}
+                    type="button"
+                  >
+                    REJECT
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="approval-confirmation">
+                ✓ Immutable v2 approved. Reset preserved the active version; replay phase {replayPhase ?? "v2"} loaded it through MCP.
+              </p>
+            )}
+          </div>
+          <div className="diff-panel">
+            <span>{proposal ? "PROPOSED SKILL DIFF" : "MEASURED IMPROVEMENT"}</span>
+            {proposal ? (
+              <pre>{proposal.patch}</pre>
+            ) : (
+              <div className="improvement-grid">
+                <div><b>V1</b><strong>6 calls</strong><small>genealogy before tool-life</small></div>
+                <div className="improvement-arrow">→</div>
+                <div><b>V2</b><strong>4 calls</strong><small>tool-life immediately after equipment</small></div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="stage-rail" aria-label="Product architecture">
         <div className="stage-chip complete"><b>01 WATCH</b><span>Deterministic Nelson engine</span></div>
         <div className={`stage-chip ${alert ? "current" : ""}`}><b>02 INVESTIGATE</b><span>Codex · GPT-5.6 Sol · MCP broker</span></div>
-        <div className="stage-chip"><b>03 LEARN</b><span>Human approval required</span></div>
+        <div className={`stage-chip ${proposal ? "current" : activeSkillVersion > 1 ? "complete" : ""}`}><b>03 LEARN</b><span>{activeSkillVersion > 1 ? "v2 active · human approved" : "Human approval required"}</span></div>
       </section>
     </main>
   );
