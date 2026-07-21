@@ -50,3 +50,27 @@ def test_scenario_1_has_clean_equipment_and_marginal_new_lot_evidence(tmp_path: 
     assert equipment_statuses == [("pass",), ("pass",)]
     assert inspection == ("inspection-s1-002", "accepted-marginal", 51.8, 52.0)
 
+
+def test_scenario_reset_preserves_approved_ocap_version(tmp_path: Path) -> None:
+    database = tmp_path / "scenario.db"
+    create_world(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO ocap_versions VALUES (?, ?, ?, ?)",
+            ("ocap-mean-shift-v2", "mean-shift", 2, "active"),
+        )
+        connection.execute(
+            "UPDATE ocap_versions SET status = ? WHERE id = ?",
+            ("superseded", "ocap-mean-shift-v1"),
+        )
+
+    create_world(database)
+
+    with sqlite3.connect(database) as connection:
+        versions = connection.execute(
+            "SELECT id, status FROM ocap_versions ORDER BY version"
+        ).fetchall()
+    assert versions == [
+        ("ocap-mean-shift-v1", "superseded"),
+        ("ocap-mean-shift-v2", "active"),
+    ]

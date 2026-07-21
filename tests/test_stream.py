@@ -26,4 +26,3 @@ def test_stream_exposes_rule_1_then_overlapping_rule_2_without_duplicate_inciden
             "status": "investigation queued",
         }
     ]
-

@@ -43,7 +43,7 @@ class WorldSummary:
 
 
 SCHEMA = """
-CREATE TABLE measurements (
+CREATE TABLE IF NOT EXISTS measurements (
     id TEXT PRIMARY KEY,
     scenario TEXT NOT NULL,
     sequence INTEGER NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE measurements (
     lot_id TEXT NOT NULL,
     UNIQUE (scenario, sequence)
 );
-CREATE TABLE equipment_logs (
+CREATE TABLE IF NOT EXISTS equipment_logs (
     id TEXT PRIMARY KEY,
     scenario TEXT NOT NULL,
     sim_hour INTEGER NOT NULL,
@@ -63,14 +63,14 @@ CREATE TABLE equipment_logs (
     status TEXT NOT NULL,
     detail TEXT NOT NULL
 );
-CREATE TABLE material_lots (
+CREATE TABLE IF NOT EXISTS material_lots (
     id TEXT PRIMARY KEY,
     scenario TEXT NOT NULL,
     material_code TEXT NOT NULL,
     supplier_code TEXT NOT NULL,
     received_sim_hour INTEGER NOT NULL
 );
-CREATE TABLE lot_genealogy (
+CREATE TABLE IF NOT EXISTS lot_genealogy (
     id TEXT PRIMARY KEY,
     scenario TEXT NOT NULL,
     line_id TEXT NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE lot_genealogy (
     introduced_sim_hour INTEGER NOT NULL,
     retired_sim_hour INTEGER
 );
-CREATE TABLE incoming_inspection (
+CREATE TABLE IF NOT EXISTS incoming_inspection (
     id TEXT PRIMARY KEY,
     scenario TEXT NOT NULL,
     lot_id TEXT NOT NULL,
@@ -88,28 +88,28 @@ CREATE TABLE incoming_inspection (
     upper_limit REAL NOT NULL,
     disposition TEXT NOT NULL
 );
-CREATE TABLE incidents (
+CREATE TABLE IF NOT EXISTS incidents (
     id TEXT PRIMARY KEY,
     scenario TEXT NOT NULL,
     opened_sim_hour INTEGER NOT NULL,
     primary_rule INTEGER NOT NULL,
     status TEXT NOT NULL
 );
-CREATE TABLE ocap_versions (
+CREATE TABLE IF NOT EXISTS ocap_versions (
     id TEXT PRIMARY KEY,
     signal_family TEXT NOT NULL,
     version INTEGER NOT NULL,
     status TEXT NOT NULL,
     UNIQUE (signal_family, version)
 );
-CREATE TABLE change_proposals (
+CREATE TABLE IF NOT EXISTS change_proposals (
     id TEXT PRIMARY KEY,
     incident_id TEXT NOT NULL,
     base_version_id TEXT NOT NULL,
     status TEXT NOT NULL,
     patch TEXT NOT NULL
 );
-CREATE TABLE event_metadata (
+CREATE TABLE IF NOT EXISTS event_metadata (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
@@ -161,12 +161,21 @@ def create_world(path: Path) -> WorldSummary:
     """Replace generated state with the canonical fixed-seed Scenario 1 world."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        path.unlink()
-
     measurements = generate_measurements()
     with sqlite3.connect(path) as connection:
         connection.executescript(SCHEMA)
+        # Scenario resets replace synthetic production state but intentionally
+        # preserve approved OCAP versions and their proposal history.
+        for table in (
+            "measurements",
+            "equipment_logs",
+            "material_lots",
+            "lot_genealogy",
+            "incoming_inspection",
+            "incidents",
+        ):
+            connection.execute(f"DELETE FROM {table} WHERE scenario = ?", (SCENARIO_ID,))
+        connection.execute("DELETE FROM event_metadata")
         connection.executemany(
             """INSERT INTO measurements
                (id, scenario, sequence, sim_hour, sim_timestamp, utc_generated_at, value, lot_id)
@@ -230,7 +239,7 @@ def create_world(path: Path) -> WorldSummary:
             ],
         )
         connection.execute(
-            "INSERT INTO ocap_versions VALUES (?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO ocap_versions VALUES (?, ?, ?, ?)",
             ("ocap-mean-shift-v1", "mean-shift", 1, "active"),
         )
         metadata = {
@@ -275,4 +284,3 @@ def canonical_snapshot(path: Path) -> str:
         for row in measurements
     ]
     return json.dumps(payload, separators=(",", ":"), sort_keys=True)
-

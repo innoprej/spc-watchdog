@@ -116,4 +116,3 @@ In the finished product, each incident launches a separate Codex investigator on
 ## License
 
 [MIT](LICENSE)
-

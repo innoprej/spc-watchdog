@@ -47,4 +47,3 @@ jobs:
 
       - name: Boot replay without credentials
         run: python run.py --mode replay --smoke-test
-

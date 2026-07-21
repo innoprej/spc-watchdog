@@ -56,4 +56,3 @@ def test_overlapping_rules_are_preserved() -> None:
 def test_sigma_must_be_positive() -> None:
     with pytest.raises(ValueError, match="greater than zero"):
         evaluate_latest([10.0], center=10.0, sigma=0.0)
-
