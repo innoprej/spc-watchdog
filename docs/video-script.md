@@ -7,6 +7,10 @@
 - Human-approved Scenario 2 v2 run after reset: one attempt, 11 verified citations, four MCP calls, with tool-life immediately after equipment and no material branch.
 - Final fixture-driven source footage: 1920×1080 WebM, 69.12 seconds for Scenario 1 and 142.80 seconds for the corrected Scenario 2 v1→v2 flow.
 - Rehearsed edit duration: 174 seconds. The cut uses the actual fixture footage, removes idle intervals, and preserves the visible `DETERMINISTIC REPLAY` badge during accelerated pickup shots.
+- Final rendered deliverable: `../captures/phase3-canonical-20260722/final-package/spc-watchdog-build-week-final.mp4`, 1920×1080 H.264/AAC, exactly 174.000 seconds.
+- The English narration was rendered locally in eleven timestamped segments; the two overlong segments received only the minimum tempo correction needed to stay inside their caption windows.
+- The corrected LEARN cut holds the pending proposal from 01:45–02:06, shows the source recording's approval-to-v2 transition during 02:06–02:24, and starts the compressed v2 trace at 02:24.
+- A full FFmpeg decode of both final streams completed with zero errors. An independent frame-and-audio review passed the corrected timing, and the four README stills were exported from this accepted MP4.
 
 ## Timed edit and narration
 
@@ -26,7 +30,8 @@
 
 ## Edit notes
 
-- Keep WATCH’s red transition, the first tool trace, the citation badge, the proposal diff, the approval click, and the v2 skill-load line at normal speed.
+- Keep WATCH’s red transition, the first tool trace, the citation badge, the proposal diff, the approval-to-v2 state transition, and the v2 skill-load line legible.
 - Accelerate only idle event gaps and pickup shots. Keep `DETERMINISTIC REPLAY` and the selected 1×/2×/4× control visible whenever replay footage is used.
 - Use the Scenario 1 source for 00:00–01:12 and Scenario 2 source for 01:12–02:54. The table totals 174 seconds.
+- Hold the proposal card rather than advancing into v2 early; compress only the v2 event gaps so skill delivery, equipment, tool-life, the verified report, and the 6→4 comparison all remain in order.
 - Captions are in `docs/video-script.srt`; narration text must remain synchronized with that file.
