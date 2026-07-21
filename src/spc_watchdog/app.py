@@ -114,7 +114,6 @@ def create_app(
         try:
             for event in events[SNAPSHOT_COUNT:]:
                 await asyncio.sleep(1.0)
-                await websocket.send_json(event)
                 incident = event.get("incident")
                 if active_coordinator is not None and isinstance(incident, dict):
                     open_incident(
@@ -125,6 +124,8 @@ def create_app(
                         primary_rule=int(incident["primary_rule"]),
                     )
                     active_coordinator.submit(str(incident["id"]))
+                await websocket.send_json(event)
+            await websocket.close(code=1000)
         except WebSocketDisconnect:
             return
 

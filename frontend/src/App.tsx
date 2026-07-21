@@ -1,6 +1,6 @@
 /** Live control chart and transparent investigation shell for the demo story. */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Violation = {
   rule: number;
@@ -47,9 +47,112 @@ type Snapshot = {
   events: MeasurementEvent[];
 };
 
+type RunEvent = {
+  schema_version: string;
+  run_id: string;
+  sequence: number;
+  recorded_at: string;
+  type: string;
+  payload: Record<string, unknown>;
+};
+
+type Citation = {
+  id: string;
+  table: string;
+  field: string;
+  value: string | number | boolean | null;
+};
+
+type Claim = {
+  text: string;
+  citations: Citation[];
+};
+
+type InvestigationReport = {
+  schema_version: string;
+  incident_id: string;
+  status: string;
+  claims: Claim[];
+  root_cause: Claim;
+};
+
+type InvestigationMessage = {
+  type: string;
+  status?: string;
+  events?: RunEvent[];
+  event?: RunEvent;
+  report?: InvestigationReport | null;
+};
+
 const WIDTH = 940;
 const HEIGHT = 360;
 const PAD = 42;
+
+function mergeRunEvents(current: RunEvent[], incoming: RunEvent[]) {
+  const bySequence = new Map(current.map((event) => [event.sequence, event]));
+  incoming.forEach((event) => bySequence.set(event.sequence, event));
+  return [...bySequence.values()].sort((left, right) => left.sequence - right.sequence);
+}
+
+function eventPresentation(event: RunEvent) {
+  const { payload } = event;
+  const text = typeof payload.text === "string" ? payload.text : "";
+  if (event.type === "skill_load") {
+    return {
+      label: "OCAP SKILL LOADED",
+      detail: `${String(payload.name)} v${String(payload.version)} · exact body delivered through MCP`,
+      tone: "skill",
+    };
+  }
+  if (event.type === "hypothesis") {
+    return { label: "HYPOTHESIS", detail: text, tone: "hypothesis" };
+  }
+  if (event.type === "tool_call") {
+    return {
+      label: `BROKER TOOL · ${String(payload.tool)}`,
+      detail: "Allowlisted evidence query started",
+      tone: "tool",
+    };
+  }
+  if (event.type === "evidence") {
+    const result = payload.result as Record<string, unknown> | undefined;
+    const structured = result?.structured_content as Record<string, unknown> | undefined;
+    const rows = Array.isArray(structured?.result)
+      ? (structured.result as Record<string, unknown>[])
+      : [];
+    const ids = rows.map((row) => String(row.id ?? "row")).join(", ");
+    return {
+      label: `EVIDENCE · ${String(payload.tool)}`,
+      detail: `${rows.length} scoped row${rows.length === 1 ? "" : "s"} returned${ids ? ` · ${ids}` : ""}`,
+      tone: "evidence",
+    };
+  }
+  if (event.type === "verifier") {
+    const passed = payload.passed === true;
+    return {
+      label: passed ? "CITATIONS VERIFIED" : "VERIFICATION REJECTED",
+      detail: passed
+        ? `${String(payload.citation_count ?? 0)} row-level citations rechecked against the factory database`
+        : `Attempt ${String(payload.attempt ?? "?")} rejected; one corrective retry is permitted`,
+      tone: passed ? "verified" : "rejected",
+    };
+  }
+  if (event.type === "decision") {
+    return { label: "ROOT-CAUSE DECISION", detail: text, tone: "decision" };
+  }
+  if (event.type === "runtime_error" || event.type === "skill_load_rejected") {
+    return {
+      label: "FAIL-CLOSED",
+      detail: String(payload.reason ?? "Runtime boundary rejected this event"),
+      tone: "rejected",
+    };
+  }
+  return {
+    label: "RUN CONTROL",
+    detail: String(payload.state ?? payload.source ?? event.type),
+    tone: "status",
+  };
+}
 
 function chartCoordinates(events: MeasurementEvent[], center: number, sigma: number) {
   const visible = events.slice(-32);
@@ -148,6 +251,12 @@ export default function App() {
   const [events, setEvents] = useState<MeasurementEvent[]>([]);
   const [snapshot, setSnapshot] = useState<Omit<Snapshot, "events" | "type"> | null>(null);
   const [streamStatus, setStreamStatus] = useState<"connecting" | "online" | "complete" | "offline">("connecting");
+  const [investigationEvents, setInvestigationEvents] = useState<RunEvent[]>([]);
+  const [investigationStatus, setInvestigationStatus] = useState("standing-by");
+  const [investigationConnection, setInvestigationConnection] = useState<"idle" | "connecting" | "online" | "complete" | "offline">("idle");
+  const [report, setReport] = useState<InvestigationReport | null>(null);
+  const lastInvestigationSequence = useRef(0);
+  const activityFeed = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -176,6 +285,84 @@ export default function App() {
   const alert = Boolean(firstSignal);
   const incident = events.find((event) => event.incident)?.incident;
   const mode = snapshot?.mode ?? "live";
+
+  useEffect(() => {
+    if (!incident?.id || mode !== "live") return;
+    let cancelled = false;
+    let finished = false;
+    let reconnectTimer: number | undefined;
+    let activeSocket: WebSocket | undefined;
+    lastInvestigationSequence.current = 0;
+    setInvestigationEvents([]);
+    setReport(null);
+    setInvestigationStatus("queued");
+
+    const connect = () => {
+      setInvestigationConnection("connecting");
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const cursor = lastInvestigationSequence.current;
+      const socket = new WebSocket(
+        `${protocol}://${window.location.host}/ws/investigate/${incident.id}?after=${cursor}`,
+      );
+      activeSocket = socket;
+      socket.onopen = () => setInvestigationConnection("online");
+      socket.onerror = () => setInvestigationConnection("offline");
+      socket.onmessage = (message) => {
+        const payload = JSON.parse(message.data) as InvestigationMessage;
+        if (payload.type === "investigation_snapshot") {
+          const incoming = payload.events ?? [];
+          setInvestigationEvents((current) => mergeRunEvents(current, incoming));
+          incoming.forEach((event) => {
+            lastInvestigationSequence.current = Math.max(
+              lastInvestigationSequence.current,
+              event.sequence,
+            );
+          });
+          setInvestigationStatus(payload.status ?? "investigating");
+          if (payload.report) setReport(payload.report);
+          finished = payload.status === "completed" || payload.status === "failed";
+        } else if (payload.type === "investigation_event" && payload.event) {
+          setInvestigationEvents((current) => mergeRunEvents(current, [payload.event!]));
+          lastInvestigationSequence.current = Math.max(
+            lastInvestigationSequence.current,
+            payload.event.sequence,
+          );
+          setInvestigationStatus(payload.status ?? "investigating");
+        } else if (payload.type === "investigation_finished") {
+          setInvestigationStatus(payload.status ?? "complete");
+          if (payload.report) setReport(payload.report);
+          finished = true;
+        } else if (
+          payload.type === "investigation_unavailable" ||
+          payload.type === "investigation_not_found"
+        ) {
+          setInvestigationStatus("unavailable");
+          finished = true;
+        }
+      };
+      socket.onclose = () => {
+        setInvestigationConnection(finished ? "complete" : "offline");
+        if (!cancelled && !finished) reconnectTimer = window.setTimeout(connect, 750);
+      };
+    };
+
+    connect();
+    return () => {
+      cancelled = true;
+      activeSocket?.close();
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+    };
+  }, [incident?.id, mode]);
+
+  const verifiedEvent = [...investigationEvents]
+    .reverse()
+    .find((event) => event.type === "verifier" && event.payload.passed === true);
+  const citationCount = Number(verifiedEvent?.payload.citation_count ?? 0);
+
+  useEffect(() => {
+    const feed = activityFeed.current;
+    if (feed) feed.scrollTop = feed.scrollHeight;
+  }, [investigationEvents.length]);
 
   return (
     <main className={alert ? "control-room alert-state" : "control-room"}>
@@ -237,31 +424,102 @@ export default function App() {
         </aside>
       </section>
 
-      <section className="lower-grid">
-        <article className="stage-card active">
-          <div className="stage-number">01</div>
-          <div>
-            <p className="eyebrow">WATCH</p>
-            <h3>{alert ? "Signal captured" : "Monitoring the line"}</h3>
-            <p>Nelson Rules 1–3 evaluate every point. Statistics remain outside the agent.</p>
+      <section className="investigation-grid">
+        <article className={`activity-panel ${alert ? "is-active" : ""}`}>
+          <div className="investigation-heading">
+            <div>
+              <p className="eyebrow">INVESTIGATE / LIVE CODEX TRACE</p>
+              <h2>Agent activity</h2>
+            </div>
+            <div className={`run-state ${investigationStatus}`}>
+              <i /> {alert ? investigationStatus.replaceAll("-", " ") : "WAITING FOR SIGNAL"}
+            </div>
+          </div>
+          <div className="activity-feed" aria-live="polite" ref={activityFeed}>
+            {investigationEvents.length === 0 ? (
+              <div className="feed-empty">
+                <span>02</span>
+                <p>
+                  {alert
+                    ? `Investigator ${investigationConnection === "offline" ? "reconnecting" : "is entering the sterile runtime"}…`
+                    : "The deterministic engine will hand off an incident when a Nelson rule fires."}
+                </p>
+              </div>
+            ) : (
+              investigationEvents.map((event) => {
+                const presentation = eventPresentation(event);
+                return (
+                  <div
+                    className={`activity-event ${presentation.tone}`}
+                    key={`${event.run_id}-${event.sequence}`}
+                  >
+                    <span className="event-sequence">{String(event.sequence).padStart(2, "0")}</span>
+                    <div>
+                      <b>{presentation.label}</b>
+                      <p>{presentation.detail}</p>
+                    </div>
+                    {event.payload.attempt !== undefined && (
+                      <small>A{String(event.payload.attempt)}</small>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </article>
-        <article className={`stage-card ${alert ? "queued" : ""}`}>
-          <div className="stage-number">02</div>
-          <div>
-            <p className="eyebrow">INVESTIGATE</p>
-            <h3>{alert ? (mode === "replay" ? "Recorded investigation queued" : "Codex investigator queued") : "Standing by"}</h3>
-            <p>{snapshot?.investigator_status ?? "Checking live runtime prerequisites…"}</p>
+
+        <aside className={`report-panel ${report ? "is-verified" : ""}`}>
+          <div className="investigation-heading">
+            <div>
+              <p className="eyebrow">INCIDENT REPORT</p>
+              <h2>{report ? "Verified conclusion" : "Verification gate"}</h2>
+            </div>
+            {report && (
+              <span className="verified-badge">✓ {citationCount} CITATIONS VERIFIED</span>
+            )}
           </div>
-        </article>
-        <article className="stage-card muted">
-          <div className="stage-number">03</div>
-          <div>
-            <p className="eyebrow">LEARN</p>
-            <h3>Human gate locked</h3>
-            <p>No playbook changes without a reviewed diff and explicit approval.</p>
-          </div>
-        </article>
+          {report ? (
+            <div className="report-content">
+              <section className="root-cause">
+                <span>ROOT CAUSE / ELIMINATE-OR-IMPLICATE</span>
+                <p>{report.root_cause.text}</p>
+                <div className="citation-row">
+                  {report.root_cause.citations.map((citation) => (
+                    <code key={`${citation.table}-${citation.id}-${citation.field}`}>
+                      {citation.table} · {citation.id} · {citation.field} = {String(citation.value)}
+                    </code>
+                  ))}
+                </div>
+              </section>
+              <div className="claim-list">
+                {report.claims.map((claim, index) => (
+                  <section className="claim" key={`${claim.text}-${index}`}>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <div>
+                      <p>{claim.text}</p>
+                      <small>{claim.citations.length} row-level source{claim.citations.length === 1 ? "" : "s"}</small>
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="report-locked">
+              <div>⌁</div>
+              <h3>Nothing renders before verification.</h3>
+              <p>
+                Every model-supplied table, row, field, and value is re-read from SQLite.
+                A failed citation triggers one visible retry, then fails closed.
+              </p>
+            </div>
+          )}
+        </aside>
+      </section>
+
+      <section className="stage-rail" aria-label="Product architecture">
+        <div className="stage-chip complete"><b>01 WATCH</b><span>Deterministic Nelson engine</span></div>
+        <div className={`stage-chip ${alert ? "current" : ""}`}><b>02 INVESTIGATE</b><span>Codex · GPT-5.6 Sol · MCP broker</span></div>
+        <div className="stage-chip"><b>03 LEARN</b><span>Human approval required</span></div>
       </section>
     </main>
   );
