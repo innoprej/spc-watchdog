@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import sqlite3
+import statistics
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,6 +16,7 @@ SCENARIO_ID = "scenario-1"
 SEED = 41021
 CENTER = 10.0
 SIGMA = 0.25
+WARMUP_COUNT = 24
 SIM_START = datetime(2026, 4, 6, 6, 0, tzinfo=timezone.utc)
 GENERATED_START = datetime(2026, 7, 21, 0, 0, tzinfo=timezone.utc)
 
@@ -157,11 +159,23 @@ def generate_measurements() -> tuple[Measurement, ...]:
     )
 
 
+def derive_control_limits(
+    measurements: tuple[Measurement, ...],
+) -> tuple[float, float]:
+    """Estimate center and sample sigma from the clean pre-lot warm-up window."""
+
+    if len(measurements) < WARMUP_COUNT:
+        raise ValueError(f"at least {WARMUP_COUNT} warm-up measurements are required")
+    warmup = [row.value for row in measurements[:WARMUP_COUNT]]
+    return statistics.fmean(warmup), statistics.stdev(warmup)
+
+
 def create_world(path: Path) -> WorldSummary:
     """Replace generated state with the canonical fixed-seed Scenario 1 world."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
     measurements = generate_measurements()
+    derived_center, derived_sigma = derive_control_limits(measurements)
     with sqlite3.connect(path) as connection:
         connection.executescript(SCHEMA)
         # Scenario resets replace synthetic production state but intentionally
@@ -246,8 +260,8 @@ def create_world(path: Path) -> WorldSummary:
             "schema_version": "1",
             "scenario": SCENARIO_ID,
             "seed": str(SEED),
-            "center": str(CENTER),
-            "sigma": str(SIGMA),
+            "center": str(derived_center),
+            "sigma": str(derived_sigma),
             "sim_rate": "1 real second = 1 simulated hour",
         }
         connection.executemany(

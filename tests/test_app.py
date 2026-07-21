@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
 from spc_watchdog import app as app_module
@@ -45,3 +46,27 @@ def test_live_health_reports_missing_codex_cli(
 
     assert payload["credentials_required"] is True
     assert payload["investigator_status"] == "unavailable: Codex CLI was not found on PATH"
+
+
+def test_watch_socket_reaches_the_first_rule_one_incident(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    """Lock the dashboard contract from its 20-point snapshot through the red verdict."""
+
+    async def no_delay(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(app_module.asyncio, "sleep", no_delay)
+    app = app_module.create_app(mode="replay", data_path=tmp_path / "socket.db")
+
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws/watch") as websocket:
+            snapshot = websocket.receive_json()
+            assert snapshot["type"] == "snapshot"
+            assert len(snapshot["events"]) == 20
+            events = [websocket.receive_json() for _ in range(7)]
+
+    verdict = events[-1]
+    assert verdict["sequence"] == 26
+    assert verdict["violations"][0]["rule"] == 1
+    assert verdict["incident"]["id"] == "incident-s1-001"

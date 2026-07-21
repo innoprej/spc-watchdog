@@ -5,8 +5,16 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from spc_watchdog.nelson import evaluate_series
-from spc_watchdog.world import CENTER, SIGMA, canonical_snapshot, create_world, load_measurements
+from spc_watchdog.world import (
+    WARMUP_COUNT,
+    canonical_snapshot,
+    create_world,
+    derive_control_limits,
+    load_measurements,
+)
 
 
 def test_scenario_1_rebuild_is_byte_stable_at_row_level(tmp_path: Path) -> None:
@@ -21,7 +29,8 @@ def test_scenario_1_places_new_lot_two_hours_before_first_violation(tmp_path: Pa
     database = tmp_path / "scenario.db"
     summary = create_world(database)
     rows = load_measurements(database)
-    violations = evaluate_series([row.value for row in rows], center=CENTER, sigma=SIGMA)
+    center, sigma = derive_control_limits(rows)
+    violations = evaluate_series([row.value for row in rows], center=center, sigma=sigma)
     first_violation_hour = rows[violations[0].end_index].sim_hour
 
     with sqlite3.connect(database) as connection:
@@ -32,6 +41,17 @@ def test_scenario_1_places_new_lot_two_hours_before_first_violation(tmp_path: Pa
 
     assert first_violation_hour == summary.first_shift_hour == 26
     assert lot_hour == summary.new_lot_hour == first_violation_hour - 2
+
+
+def test_control_limits_are_derived_only_from_clean_warmup(tmp_path: Path) -> None:
+    database = tmp_path / "scenario.db"
+    create_world(database)
+    rows = load_measurements(database)
+    center, sigma = derive_control_limits(rows)
+
+    assert WARMUP_COUNT == 24
+    assert center == pytest.approx(10.062358333333334)
+    assert sigma == pytest.approx(0.2423767529329471)
 
 
 def test_scenario_1_has_clean_equipment_and_marginal_new_lot_evidence(tmp_path: Path) -> None:

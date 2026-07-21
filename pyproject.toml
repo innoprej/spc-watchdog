@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.139,<0.140",
   "mcp>=1.28,<2",
-  "numpy>=2.5,<3",
+  "numpy==2.5.1",
   "uvicorn[standard]>=0.51,<0.52",
 ]
 
