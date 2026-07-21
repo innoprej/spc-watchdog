@@ -143,13 +143,13 @@ No application scaffolding begins until this gate passes.
 ### Acceptance criteria
 
 - [x] README distinguishes deterministic WATCH, agentic INVESTIGATE, and human-gated LEARN without implying that the model performs statistical detection.
-- [ ] A judge can clone and run replay with one documented cross-platform command and no credentials.
+- [x] A judge can clone and run replay with one documented cross-platform command and no credentials.
 - [x] Live prerequisites, Codex-credit behavior, degraded states, and replay behavior are described honestly.
 - [x] The repository contains an MIT license and no secrets, credentials, personal data, usernames, absolute local paths, raw unsanitized logs, employer artifacts, or unrelated third-party trademarks.
 - [x] The final video is at most three minutes and visibly contains the red chart, transparent investigation, cited report, approved skill diff, and smarter v2 re-run.
 - [x] Every repository-authored Devpost field and required asset is complete and consistent with the repository and video; only the post-upload YouTube URL remains a human submission value.
-- [ ] The latest `ubuntu-latest` clean-clone replay workflow is green.
-- [ ] The final `/review` and `judge-panel-review` have no unresolved CRITICAL findings.
+- [x] The latest `ubuntu-latest` clean-clone replay workflow is green.
+- [x] The final `/review` and `judge-panel-review` have no unresolved CRITICAL findings.
 - [ ] The user explicitly approves the final external submission or publication action.
 
 ## Cross-phase verification matrix
@@ -212,3 +212,4 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Media review fix | Phase 4 | Reject the first MP4 after a timed-out encoder orphan caused concurrent writes, reject the next encode because oversized captions obscured evidence, and reject the initially accepted cut when independent review found that its LEARN narration outran the proposal and approval footage. | The promoted fresh-name render holds the diff, aligns the approval-to-v2 transition, starts the v2 trace at 02:24, and passed a complete audio/video decode; metadata-only probing would have missed both the corruption and the story defect. |
 | 2026-07-21 | Packaging | Phase 4 | Render the corrected 174.000-second narrated, caption-burned 1080p deliverable outside the repository and commit four compressed 1440×810 stills plus exact Devpost and YouTube copy. | Raw media stays outside Git while README and submission assets carry every judging criterion; uploading, visibility changes, and form submission remain human actions. |
 | 2026-07-21 | Independent review fix | Phase 4 | Re-cut the closing sequence after the first independent gate scored Design below four because the proposal appeared briefly and approval narration played over an already-running v2 trace. | The second independent pass found no blocker: the pending proposal remains readable for 21 seconds, activation occurs under the approval narration, and the exact v2 skill load, equipment-first tool-life path, 11-citation report, and 6→4 comparison are visible in order. |
+| 2026-07-21 | Phase close | Phase 4 | Close the repository and media gate with 64 tests, Python compilation, production frontend build, two local and two fresh-clone replay smokes, public-safety scans, full media decode, `/review`, judge-panel review, and independent post-fix verification. | Remote `main` fast-forwarded through all four phase branches, and GitHub `ubuntu-latest` run `29861308869` passed commit `63ba5df`; only the user-owned repository visibility, YouTube upload, URL paste, and Devpost submission remain open. |

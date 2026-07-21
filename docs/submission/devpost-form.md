@@ -67,7 +67,7 @@ This combines three different trust models instead of applying a model to every 
 
 ## How I used Codex
 
-Codex was both the implementation collaborator and the live investigation runtime. I used an `AGENTS.md` contract, phased `/plan`, small checkpoint commits, tests, adversarial `/review`, a project-local judging skill, and an independent verification pass. The first subprocess-tool spike failed safely; Codex then checked current official runtime documentation, re-spiked an allowlisted MCP design, and used negative probes to reject two premature sandbox claims. The measured build log records 225 actual minutes against 420 planned across the first three complete phases, with the deliberate security re-spike overrun documented rather than hidden.
+Codex was both the implementation collaborator and the live investigation runtime. I used an `AGENTS.md` contract, phased `/plan`, small checkpoint commits, tests, adversarial `/review`, a project-local judging skill, and an independent verification pass. The first subprocess-tool spike failed safely; Codex then checked current official runtime documentation, re-spiked an allowlisted MCP design, and used negative probes to reject two premature sandbox claims. The measured build log records 275 actual minutes against 510 planned across all four phases, with the deliberate security re-spike overrun and three rejected media candidates documented rather than hidden.
 
 In the product, `codex exec` runs GPT-5.6 Sol, emits JSON events for the activity feed, loads the exact OCAP body through MCP, queries only registered evidence tools, and returns the structured cited report. Neither Codex nor GPT-5.6 decides whether a Nelson rule fired or whether a citation is valid.
 
