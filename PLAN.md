@@ -19,6 +19,7 @@ Quality gates, not phase budgets, control progression. The user explicitly remov
 - Approved skill versions survive scenario resets.
 - Live mode is the default; replay mode is explicit, credential-free, visibly labeled, and adjustable to 1x, 2x, or 4x.
 - Committed JSONL replay logs are schema-versioned and sanitized only for absolute paths, usernames, and credentials.
+- Sanitized replay fixtures are tracked under `fixtures/`; raw and unsanitized run artifacts remain local-only under the gitignored `runs/` directory.
 - Requirements beyond the two seeded scenarios go to `BACKLOG.md` unless they directly unblock the demo or judge quickstart.
 
 ## Pre-Phase 1 approval gate
@@ -71,7 +72,7 @@ No application scaffolding begins until this gate passes.
 - [x] Scenario 1 streams to the dashboard and visibly flips the chart red from deterministic engine output.
 - [x] `python run.py` starts the live application path; unavailable live prerequisites produce an explicit state rather than a silent replay.
 - [x] `python run.py --mode replay` boots the skeleton without Codex credentials.
-- [ ] The Ubuntu CI job passes the clean-clone test, frontend check, and replay-mode boot smoke test.
+- [x] The Ubuntu CI job passes the clean-clone test, frontend check, and replay-mode boot smoke test.
 - [x] The phase-close ritual in `AGENTS.md` passes with no unresolved CRITICAL review finding.
 
 ## Phase 2 — Complete the INVESTIGATE path
@@ -187,3 +188,5 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Decision | Phase 1 | Disable environment context, automatic project docs, and all skill instructions for the sterile spike; serialize the public-safe contract into stdin. | Model-visible prompt inspection then contained the contract marker but no absolute path, user directory, username, environment block, or skills block. Phase 2 must isolate OS-home discovery before re-enabling only OCAP. |
 | 2026-07-21 | Timing | Phase 1 | The robust MCP boundary closed in about 89 minutes against its 60-minute re-spike timebox. | Initial transport success was insufficient; adversarial path reads, user-skill prompt leakage, and cross-platform tool defaults required additional negative verification before PASS. |
 | 2026-07-21 | Review fix | Phase 1 | Resolve the forbidden-runtime test path from the installed package root, not the caller's working directory. | The final clean-clone rehearsal invoked pytest from outside the clone and exposed the test-only cwd assumption; after the fix, all 26 tests, frontend build, replay smoke, and live smoke passed from the committed clone. |
+| 2026-07-21 | Verification | Phase 1 | Push `main` and `codex/phase-1` to the private `innoprej/spc-watchdog` remote and close the hosted-CI gate on run `29847447849`. | GitHub's `ubuntu-latest` runner passed the backend tests, frontend build, and credential-free replay boot from commit `ca0cc74` in 32 seconds. |
+| 2026-07-21 | Decision | Phase 3 | Track sanitized, schema-versioned replay artifacts under `fixtures/` and reserve gitignored `runs/` for raw local executions. | Separating judge fixtures from raw runtime output prevents ignore-rule churn and makes the public replay boundary explicit before Phase 2 begins. |
