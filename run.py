@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -44,6 +46,20 @@ def _available_port() -> int:
         return int(probe.getsockname()[1])
 
 
+def ensure_frontend() -> None:
+    """Build the committed frontend on first run so the demo has one entry point."""
+
+    frontend = ROOT / "frontend"
+    if (frontend / "dist" / "index.html").exists():
+        return
+    npm = shutil.which("npm")
+    if npm is None:
+        raise RuntimeError("Node.js/npm is required to build the frontend on first run.")
+    print("Building the SPC Watchdog frontend for first run…")
+    subprocess.run([npm, "ci"], cwd=frontend, check=True)
+    subprocess.run([npm, "run", "build"], cwd=frontend, check=True)
+
+
 def smoke_test(mode: str) -> None:
     """Prove that a credential-free server reaches its health endpoint."""
 
@@ -76,6 +92,7 @@ def main() -> None:
     """Start the selected demo mode or execute its boot smoke test."""
 
     args = parse_args()
+    ensure_frontend()
     if args.smoke_test:
         smoke_test(args.mode)
         return
