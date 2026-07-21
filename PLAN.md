@@ -6,6 +6,17 @@ Deliver a public-safe, judge-runnable SPC Watchdog demonstration in which determ
 
 The hard deadline is July 21, 2026 at 17:00 PT. Phases have acceptance gates, not calendar allocations, and run back-to-back as soon as each gate passes. The only explicit timebox is the approximately 90-minute Phase 1 Codex runtime spike.
 
+## Phase budgets
+
+| Phase | Budget from plan approval | Overrun rule |
+| --- | ---: | --- |
+| Phase 1 | Approximately 2.5 hours | Stop and ask the user to choose scope cuts. |
+| Phase 2 | Approximately 2.5 hours | Stop and ask the user to choose scope cuts. |
+| Phase 3 | Approximately 2 hours | Stop and ask the user to choose scope cuts. |
+| Phase 4 | Approximately 1.5 hours | Stop and ask the user to choose scope cuts. |
+
+If the exec spike passes every hard gate, record the evidence and continue Phase 1 without waiting. If any hard gate fails, stop before touching the fallback.
+
 ## Fixed decisions
 
 - The architecture and scenario contracts in `docs/project-charter.md` are binding.
@@ -22,9 +33,9 @@ The hard deadline is July 21, 2026 at 17:00 PT. Phases have acceptance gates, no
 - [x] Confirm the five architecture decisions from the blindspot pass.
 - [x] Initialize the public-safe repository and record the project working agreement.
 - [x] Draft the charter, phased plan, acceptance gates, and backlog boundary.
-- [ ] Select the product display name; keep the repository name `spc-watchdog`.
-- [ ] Receive and install the user's review skill file.
-- [ ] Obtain user approval for this plan.
+- [x] Select `SPC Watchdog` as the product display name; keep the repository name `spc-watchdog`.
+- [x] Receive, validate, and install the user's `judge-panel-review` skill file.
+- [x] Obtain user approval for this plan.
 
 No application scaffolding begins until this gate passes.
 
@@ -59,7 +70,7 @@ No application scaffolding begins until this gate passes.
 
 ### Acceptance criteria
 
-- [ ] A public-safe spike note records official source links, verified command mechanics, observed event examples, sandbox/working-directory findings, model-selection evidence, and any billing uncertainty.
+- [x] A public-safe spike note records official source links, verified command mechanics, observed event examples, sandbox/working-directory findings, model-selection evidence, and any billing uncertainty.
 - [ ] A minimal GPT-5.6 Sol Codex exec produces a parseable event stream in the disposable runtime, or a written hard-gate decision activates the API fallback.
 - [ ] No prompt or runtime workspace contains the planted root cause, factory database, credentials, username, or absolute local path.
 - [ ] Rebuilding Scenario 1 with the same seed yields the same measurements, evidence IDs, and violation window.
@@ -169,3 +180,4 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Decision | Phase 2 | Enforce the tool-only boundary with a database-free runtime workspace and backend query broker. | A prompt-only prohibition would not substantiate the product's architecture invariant. |
 | 2026-07-21 | Decision | Phase 3 | Preserve approved skill versions across scenario resets and expose 1x/2x/4x replay speeds. | The smarter-v2 re-run is the closing beat, and adjustable playback protects video pacing without disguising replay. |
 | 2026-07-21 | Scope | All | Implement safeguards only to the depth required by the two seeded scenarios; defer general production hardening. | The submission deadline is today, and visible end-to-end proof outranks unused generality. |
+| 2026-07-21 | Blocker | Phase 1 | Codex exec accepted GPT-5.6 Sol, emitted parseable JSONL, and produced schema-valid output, but both safe sandbox modes denied registered CLI tool process creation on Windows. Phase 1 stopped before fallback or scaffolding. | Registered tool access inside the constrained runtime is an explicit hard gate; choosing weaker isolation, MCP tools, Linux isolation, or the API fallback changes the architecture and requires the user's scope decision. |
