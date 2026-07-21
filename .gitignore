@@ -42,6 +42,8 @@ pnpm-debug.log*
 data/
 runs/
 logs/
+output/
+.playwright-cli/
 
 # Private work and local agent state
 research/
