@@ -80,7 +80,7 @@ def _same_citation_value(canonical: object, cited: object) -> bool:
     if isinstance(canonical, bool) or isinstance(cited, bool):
         return type(canonical) is type(cited) and canonical == cited
     if isinstance(canonical, (int, float)) and isinstance(cited, (int, float)):
-        return float(canonical) == float(cited)
+        return canonical == cited
     return type(canonical) is type(cited) and canonical == cited
 
 
