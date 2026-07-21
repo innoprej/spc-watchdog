@@ -2,9 +2,9 @@
 
 ## Verdict
 
-**BLOCKED — registered CLI tool execution failed a hard gate on Windows. Phase 1 stopped before application scaffolding or fallback work.**
+**PASS — a registered MCP tool completed inside a `read-only` Codex sandbox, returned stable row evidence, and produced schema-valid cited output without a shell command.**
 
-The spike used Codex CLI `0.144.6`, ChatGPT-managed authentication, and the `gpt-5.6-sol` model slug. Machine-readable events and schema-constrained final output worked. A registered tool could not start inside either the `read-only` or `workspace-write` sandbox, even though the same tools executed successfully from the host shell.
+The spike used Codex CLI `0.144.6`, ChatGPT-managed authentication, and the `gpt-5.6-sol` model slug. Machine-readable events, schema-constrained final output, project-scoped MCP configuration, and sandboxed broker access all worked. Windows denied the initial `.cmd` and `.ps1` subprocess probes in safe sandboxes, so the revised spike exposed the same allowlisted broker operation as a Streamable HTTP MCP tool instead.
 
 ## Official contract checked
 
@@ -16,6 +16,8 @@ The spike used Codex CLI `0.144.6`, ChatGPT-managed authentication, and the `gpt
 | Sandbox | `read-only`, `workspace-write`, and `danger-full-access` are documented modes; automation should use the least permission that works. | [Codex CLI command reference](https://learn.chatgpt.com/docs/developer-commands.md?surface=cli#cli-codex-exec) |
 | Event stream | `--json` emits JSONL events including thread/turn lifecycle and `item.*` events for reasoning, commands, file changes, MCP calls, web searches, and plans. | [Codex non-interactive mode](https://learn.chatgpt.com/docs/developer-commands.md?surface=cli#cli-codex-exec) |
 | Structured final output | `--output-schema` constrains the final response to a JSON Schema; `-o` writes the final message. | [Codex non-interactive mode](https://learn.chatgpt.com/docs/developer-commands.md?surface=cli#cli-codex-exec) |
+| MCP transport and scope | Codex supports Streamable HTTP MCP servers in `config.toml`; trusted projects may keep project-scoped `.codex/config.toml` configuration. | [Model Context Protocol](https://learn.chatgpt.com/docs/extend/mcp), [Codex configuration](https://learn.chatgpt.com/docs/config-file/config-reference) |
+| MCP restriction and reliability | `required`, `enabled_tools`, startup/tool timeouts, and server/per-tool approval modes are supported. `default_tools_approval_mode = "approve"` is the non-interactive trusted-tool policy used by this project. | [Model Context Protocol](https://learn.chatgpt.com/docs/extend/mcp), [Codex configuration](https://learn.chatgpt.com/docs/config-file/config-reference) |
 | Authentication and billing | `codex exec` reuses saved CLI authentication. ChatGPT plans use Codex usage and credits; API-key runs use API token billing. | [Codex pricing](https://learn.chatgpt.com/docs/pricing.md), [Codex authentication](https://learn.chatgpt.com/docs/auth) |
 
 The CLI does not expose a per-run currency charge in its JSONL stream, so this project can truthfully state that the observed run used ChatGPT-managed Codex authentication and reported token usage, but not a precise credit charge.
@@ -27,40 +29,36 @@ The CLI does not expose a per-run currency charge in its JSONL stream, so this p
 | Project-local skill discovery | PASS | `codex debug prompt-input` listed `judge-panel-review` from the repository's `.codex/skills` root. |
 | Authentication | PASS | `codex login status` reported ChatGPT-managed login. No API-key environment variable was supplied. |
 | Model availability | PASS | The local model catalog listed `gpt-5.6-sol` as GPT-5.6 Sol, and the exec invocation accepted `-m gpt-5.6-sol`. |
-| JSONL parsing | PASS | The probe parsed JSON objects and observed one `command_execution` item rather than scraping terminal prose. |
-| Structured final output | PASS | All three attempts produced schema-valid JSON with exactly `claim` and `citation_id`. |
-| Working-directory contract | PASS | The agent loaded the disposable runtime contract and attempted the relative registered-tool path. |
-| Registered tool in `read-only` | FAIL | The `.cmd` probe returned `access denied while spawning the sandboxed process`. |
-| Registered tool in `workspace-write` | FAIL | Both `.cmd` and in-workspace `.ps1` probes reported that sandboxed process creation was denied. |
-| Tool validity outside sandbox | PASS | Both probe tools printed the expected stable evidence row when invoked directly from the host shell. |
+| JSONL parsing | PASS | The successful run parsed lifecycle, MCP tool, agent-message, and usage objects without scraping terminal prose. |
+| Structured final output | PASS | The successful run produced schema-valid JSON with exactly `claim` and `citation_id`. |
+| Working-directory contract | PASS | The agent loaded the disposable database-free runtime contract from its configured working directory. |
+| CLI subprocess tool in safe sandboxes | FAIL | Windows denied `.cmd` and `.ps1` process creation in both `read-only` and `workspace-write`; the tools themselves worked from the host shell. |
+| MCP discovery | PASS | The project-scoped server initialized and advertised only the allowlisted `query_probe` tool. |
+| MCP invocation in `read-only` | PASS | The JSONL stream contained one completed `mcp_tool_call` with the expected stable row and no `command_execution` item. |
+| Headless tool approval | PASS | Changing the server default from `auto` to `approve` allowed dispatch under non-interactive approval policy; the earlier `auto` run cancelled before `tools/call`. |
 
-The disposable probe returned this row outside Codex:
-
-```json
-{"id":"probe-row-001","table":"probe_evidence","field":"status","value":"tool-access-confirmed"}
-```
-
-The schema-valid Codex failure reports were:
+The successful MCP call returned this structured row inside Codex:
 
 ```json
-{"claim":"query-probe.cmd failed before returning a row: access denied while spawning the sandboxed process.","citation_id":""}
-{"claim":"query-probe.cmd could not be executed because the sandbox denied process creation; no JSON row was returned.","citation_id":""}
-{"claim":"query-probe.ps1 could not start because the sandbox denied process creation; no evidence row was returned.","citation_id":""}
+{"id":"probe-row-001","table":"probe_evidence","field":"status","value":"mcp-tool-access-confirmed"}
 ```
 
-No raw run log is committed. This note contains no absolute paths, usernames, or credentials.
+The final schema-valid report was:
 
-## Hard-gate assessment
+```json
+{"claim":"mcp-tool-access-confirmed","citation_id":"probe-row-001"}
+```
 
-The default architecture requires a Codex investigator to call registered CLI tools inside a constrained runtime workspace. Because both safe sandbox modes denied those tool processes on the development machine, the primary exec path does not currently meet its tool-access hard gate.
+The event sequence was `thread.started` → `turn.started` → `item.started` (`mcp_tool_call`) → `item.completed` (`mcp_tool_call`) → `item.completed` (`agent_message`) → `turn.completed`. No raw run log or thread identifier is committed. This note contains no absolute paths, usernames, or credentials.
 
-No direct GPT-5.6 API fallback, `danger-full-access` run, MCP replacement, WSL/container workaround, backend scaffold, or frontend scaffold was started after the failure.
+## Boundary assessment
 
-## Decision required
+The passing design keeps the SQLite database and broker implementation outside the investigator workspace. Codex receives only its contract and skills, while the backend exposes a fixed MCP allowlist. The Codex run remains in `read-only` when investigation output is returned through the final response; `workspace-write` remains available only if a later runtime artifact genuinely requires it.
 
-1. **Fastest demo path:** permit `danger-full-access` for the synthetic live run while retaining a database-free runtime workspace and backend query broker; keep replay credential-free and safe.
-2. **Stronger boundary, more work:** replace CLI subprocess tools with registered MCP tools and re-spike Codex exec.
-3. **Environment workaround:** run the live investigator inside Linux/WSL or a container and keep the existing CLI-tool contract.
-4. **Fallback:** activate direct GPT-5.6 API function calling as the documented fallback.
+The MCP transport crosses the Codex shell sandbox by design, but it does not grant arbitrary network or SQL access: the configured loopback server is required, the server tool allowlist is explicit, and each broker operation owns its query shape. Phase 2 will replace `query_probe` with the four incident-scoped factory query tools and will verify that the runtime workspace contains no database or database path.
 
-Given the submission deadline, option 1 is the shortest path, but it weakens the claim from OS-enforced isolation to an application-level broker boundary and therefore requires explicit approval.
+## Adopted decision
+
+Use `codex exec` with GPT-5.6 Sol, a safe sandbox, a disposable database-free runtime workspace, and a backend-owned allowlisted MCP broker as the standard live path.
+
+Keep `danger-full-access`, WSL/container isolation, and direct GPT-5.6 API fan-out dormant. The initial subprocess failure remains documented because it explains the MCP boundary and prevents an unsupported claim that Windows safe sandboxes can launch the original CLI wrappers.

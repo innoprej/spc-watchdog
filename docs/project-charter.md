@@ -30,7 +30,7 @@ Within three minutes, the viewer sees four verdict moments:
 ### INVESTIGATE — agentic
 
 - Each incident queues one headless Codex exec run configured for GPT-5.6 Sol.
-- The dedicated runtime workspace contains `AGENTS.md`, versioned OCAP skills, and registered CLI tools, but no SQLite database.
+- The dedicated runtime workspace contains `AGENTS.md` and versioned OCAP skills, but no SQLite database. Backend-owned, allowlisted factory queries are exposed as registered MCP tools.
 - Registered tools query an allowlisted backend broker and return compact rows with immutable IDs.
 - The investigator follows an eliminate-or-implicate contract and emits a schema-validated `report.json` containing claims and row-level citations.
 - The backend persists a versioned JSONL event stream with monotonically increasing sequence numbers. WebSocket clients receive a snapshot and resume from the last observed sequence.

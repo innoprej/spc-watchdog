@@ -21,4 +21,4 @@ This file holds work that does not directly serve the two seeded scenarios, the 
 
 ## Conditional fallback
 
-- Build a direct GPT-5.6 API investigation runtime only if the timeboxed Codex exec spike fails a documented hard gate. Do not build or maintain both paths speculatively.
+- Keep `danger-full-access`, WSL/container isolation, and a direct GPT-5.6 API investigation runtime dormant unless the adopted safe-sandbox MCP path later fails a documented live-runtime gate. Do not build or maintain parallel paths speculatively.

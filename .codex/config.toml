@@ -1,0 +1,8 @@
+[mcp_servers.spc_watchdog]
+url = "http://127.0.0.1:8765/mcp"
+required = true
+enabled = true
+enabled_tools = ["query_probe"]
+default_tools_approval_mode = "approve"
+startup_timeout_sec = 10
+tool_timeout_sec = 30

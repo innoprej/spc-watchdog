@@ -16,10 +16,10 @@ The three-minute demonstration is the governing product surface. SPC Watchdog mu
 ## Confirmed runtime decisions
 
 - Run one Codex investigator per incident and queue overlapping incidents. Phase 2 fan-out means transparent multi-hop investigation activity and event propagation, not concurrent investigator agents.
-- Keep SQLite outside the Codex runtime workspace. Give the runtime only its contract, OCAP skills, and registered CLI tools backed by an allowlisted query broker.
+- Keep SQLite outside the Codex runtime workspace. Give the runtime only its contract and OCAP skills; expose backend-owned, allowlisted query operations as registered MCP tools.
 - On citation failure, provide verification feedback and allow one retry. After that, verified claims alone form the verdict and rejected claims remain visible only in the audit trail.
 - The initial Scenario 2 playbook checks recent equipment events but omits accumulated tool-life or cycle-age analysis. The investigation can expose this gap and propose a trend-specific tool-life step.
-- Phase 1 begins with a timeboxed Codex exec / GPT-5.6 Sol runtime spike. Build the direct GPT-5.6 API fallback only if documented spike gates prove the exec path unsuitable.
+- The standard live runtime is `codex exec` on GPT-5.6 Sol in a safe Codex sandbox, with the database-free workspace reaching the backend broker only through registered MCP tools. Keep the direct GPT-5.6 API fallback dormant.
 - Approved skill versions survive scenario resets so the closing demonstration can re-run the incident with the improved v2 playbook.
 
 ## Engineering rules

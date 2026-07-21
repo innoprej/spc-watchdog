@@ -4,24 +4,17 @@
 
 Deliver a public-safe, judge-runnable SPC Watchdog demonstration in which deterministic process monitoring triggers a transparent Codex investigation, verified evidence produces the root-cause verdict, and human approval improves the active OCAP skill.
 
-The hard deadline is July 21, 2026 at 17:00 PT. Phases have acceptance gates, not calendar allocations, and run back-to-back as soon as each gate passes. The only explicit timebox is the approximately 90-minute Phase 1 Codex runtime spike.
+The hard deadline is July 21, 2026 at 17:00 PT. Phases have acceptance gates, not calendar allocations, and run back-to-back as soon as each gate passes.
 
-## Phase budgets
+## Pacing
 
-| Phase | Budget from plan approval | Overrun rule |
-| --- | ---: | --- |
-| Phase 1 | Approximately 2.5 hours | Stop and ask the user to choose scope cuts. |
-| Phase 2 | Approximately 2.5 hours | Stop and ask the user to choose scope cuts. |
-| Phase 3 | Approximately 2 hours | Stop and ask the user to choose scope cuts. |
-| Phase 4 | Approximately 1.5 hours | Stop and ask the user to choose scope cuts. |
-
-If the exec spike passes every hard gate, record the evidence and continue Phase 1 without waiting. If any hard gate fails, stop before touching the fallback.
+Quality gates, not phase budgets, control progression. The user explicitly removed the earlier budget-stop constraint so a failed runtime boundary could be solved properly. The MCP re-spike received a 60-minute timebox; because it passed, the project adopted that path and continued without activating a fallback.
 
 ## Fixed decisions
 
 - The architecture and scenario contracts in `docs/project-charter.md` are binding.
 - One Codex investigator runs per incident; additional incidents queue.
-- SQLite stays outside the Codex runtime workspace and is reachable only through registered CLI tools backed by an allowlisted broker.
+- SQLite stays outside the Codex runtime workspace and is reachable only through registered MCP tools backed by an allowlisted broker.
 - Only citation-verified claims contribute to an official verdict. One verification-informed retry is allowed.
 - Approved skill versions survive scenario resets.
 - Live mode is the default; replay mode is explicit, credential-free, visibly labeled, and adjustable to 1x, 2x, or 4x.
@@ -43,12 +36,12 @@ No application scaffolding begins until this gate passes.
 
 ### Scope
 
-1. **Codex exec / GPT-5.6 Sol spike — approximately 90 minutes**
+1. **Codex exec / GPT-5.6 Sol spike**
    - Read current official OpenAI documentation before choosing flags or configuration.
    - Verify the exact headless command, JSON/JSONL event format, working-directory behavior, model selection, sandbox and tool access, authentication expectations, and Codex-credit billing claims.
-   - Run a minimal investigation in an isolated disposable workspace and capture a sanitized sample event stream.
+   - Run a minimal investigation in an isolated disposable workspace and capture sanitized event evidence.
    - Record what official documentation proves separately from what local observation proves.
-   - Decide `exec` or fallback at the end of the timebox. Trigger the direct GPT-5.6 API fallback only if the live spike cannot expose sufficient events, select the required model, maintain the workspace/tool boundary, or run reliably enough for the demo.
+   - Prefer a registered MCP boundary when sandboxed Windows subprocess tools cannot start. Keep `danger-full-access`, WSL/container, and direct GPT-5.6 API paths dormant when the MCP gate passes.
 2. **Repository and cross-platform bootstrap**
    - Add Python 3.12 backend and React/Vite/Tailwind frontend skeletons with the smallest necessary dependency set.
    - Implement `python run.py` as the single cross-platform entry point.
@@ -71,7 +64,7 @@ No application scaffolding begins until this gate passes.
 ### Acceptance criteria
 
 - [x] A public-safe spike note records official source links, verified command mechanics, observed event examples, sandbox/working-directory findings, model-selection evidence, and any billing uncertainty.
-- [ ] A minimal GPT-5.6 Sol Codex exec produces a parseable event stream in the disposable runtime, or a written hard-gate decision activates the API fallback.
+- [x] A minimal GPT-5.6 Sol Codex exec produces a parseable event stream and completes a registered MCP tool call under `read-only` sandboxing.
 - [ ] No prompt or runtime workspace contains the planted root cause, factory database, credentials, username, or absolute local path.
 - [ ] Rebuilding Scenario 1 with the same seed yields the same measurements, evidence IDs, and violation window.
 - [ ] Nelson Rules 1–3 pass focused pytest coverage, including exact threshold and sequence boundaries.
@@ -85,7 +78,7 @@ No application scaffolding begins until this gate passes.
 
 ### Scope
 
-1. Implement the backend-owned, incident-scoped query broker and the registered CLI tools: `query-equipment-logs`, `query-material-lots`, `query-incoming-inspection`, and `chart-context`.
+1. Implement the backend-owned, incident-scoped query broker and expose `query-equipment-logs`, `query-material-lots`, `query-incoming-inspection`, and `chart-context` as registered MCP tools.
 2. Create the dedicated Codex runtime template containing its public-safe investigation `AGENTS.md`, the initial OCAP skill, output schema, and tool launchers—but no database.
 3. Launch one queued Codex exec investigation per incident and normalize its event stream into skill-load, hypothesis, tool-call, evidence, decision, and status events.
 4. Persist every run as sequence-numbered, schema-versioned JSONL and support WebSocket snapshot/resume.
@@ -181,3 +174,6 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Decision | Phase 3 | Preserve approved skill versions across scenario resets and expose 1x/2x/4x replay speeds. | The smarter-v2 re-run is the closing beat, and adjustable playback protects video pacing without disguising replay. |
 | 2026-07-21 | Scope | All | Implement safeguards only to the depth required by the two seeded scenarios; defer general production hardening. | The submission deadline is today, and visible end-to-end proof outranks unused generality. |
 | 2026-07-21 | Blocker | Phase 1 | Codex exec accepted GPT-5.6 Sol, emitted parseable JSONL, and produced schema-valid output, but both safe sandbox modes denied registered CLI tool process creation on Windows. Phase 1 stopped before fallback or scaffolding. | Registered tool access inside the constrained runtime is an explicit hard gate; choosing weaker isolation, MCP tools, Linux isolation, or the API fallback changes the architecture and requires the user's scope decision. |
+| 2026-07-21 | Decision | Phase 1 | Replace runtime CLI subprocess tools with backend-brokered MCP tools and remove phase budget stop rules. | The user preferred preserving a real sandbox boundary over taking the fastest application-enforced shortcut and explicitly removed budget as a constraint. |
+| 2026-07-21 | Discovery | Phase 1 | A GPT-5.6 Sol `codex exec` run completed `query_probe` under `read-only`, emitted one completed `mcp_tool_call`, emitted no shell command event, and returned the expected stable citation. | Project-scoped MCP configuration with `default_tools_approval_mode = "approve"` makes the allowlisted broker callable in headless mode; `auto` caused the call to be cancelled before dispatch. |
+| 2026-07-21 | Decision | Phase 1 | Adopt safe-sandbox Codex exec plus a database-free workspace and allowlisted MCP broker as the standard live runtime; keep `danger-full-access`, WSL/container, and direct API paths dormant. | The MCP re-spike passed every revised hard gate, so no weaker or duplicate runtime path is needed. |
