@@ -34,6 +34,8 @@ def build_codex_exec_command(
     output_schema: Path,
     output_last_message: Path,
     enabled_tools: Sequence[str],
+    mcp_url: str = MCP_URL,
+    codex_executable: str = "codex",
 ) -> list[str]:
     """Return a headless command isolated from permissive user sandbox settings.
 
@@ -48,7 +50,7 @@ def build_codex_exec_command(
 
     tools = ",".join(f'"{tool}"' for tool in enabled_tools)
     return [
-        "codex",
+        codex_executable,
         "-a",
         "never",
         "exec",
@@ -112,7 +114,7 @@ def build_codex_exec_command(
         "-c",
         "skills.include_instructions=false",
         "-c",
-        f'mcp_servers.spc_watchdog.url="{MCP_URL}"',
+        f'mcp_servers.spc_watchdog.url="{mcp_url}"',
         "-c",
         "mcp_servers.spc_watchdog.required=true",
         "-c",
@@ -139,7 +141,7 @@ def build_codex_exec_environment(
     runtime_workspace: Path,
     base_environment: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
-    """Point the child at a credential-only Codex home, not user customizations."""
+    """Isolate Codex state and OS-home skill discovery from user customizations."""
 
     resolved_home = isolated_codex_home.resolve()
     if resolved_home.is_relative_to(PROJECT_ROOT):
@@ -149,6 +151,14 @@ def build_codex_exec_environment(
     resolved_workspace = runtime_workspace.resolve()
     if resolved_home == resolved_workspace or resolved_home.is_relative_to(resolved_workspace):
         raise ValueError("isolated Codex home must be outside the investigator workspace")
+    if resolved_workspace.is_relative_to(PROJECT_ROOT):
+        raise ValueError("investigator runtime workspace must be outside the source repository")
+    os_home = resolved_workspace / ".home"
+    os_home.mkdir(parents=True, exist_ok=True)
     environment = dict(os.environ if base_environment is None else base_environment)
     environment["CODEX_HOME"] = str(resolved_home)
+    environment["HOME"] = str(os_home)
+    environment["USERPROFILE"] = str(os_home)
+    environment.pop("HOMEDRIVE", None)
+    environment.pop("HOMEPATH", None)
     return environment

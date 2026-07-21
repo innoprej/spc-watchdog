@@ -96,6 +96,18 @@ def test_investigator_command_exposes_only_explicit_tool_allowlist(tmp_path: Pat
     )
 
 
+def test_investigator_command_accepts_a_native_codex_executable(tmp_path: Path) -> None:
+    command = build_codex_exec_command(
+        runtime_workspace=tmp_path / "runtime",
+        output_schema=tmp_path / "runtime" / "schema.json",
+        output_last_message=tmp_path / "runtime" / "report.json",
+        enabled_tools=("chart_context",),
+        codex_executable="native-codex.exe",
+    )
+
+    assert command[0] == "native-codex.exe"
+
+
 def test_investigator_command_rejects_runtime_inside_source_repository() -> None:
     runtime_workspace = PROJECT_ROOT / "runs" / "unsafe-runtime"
 
@@ -117,7 +129,16 @@ def test_investigator_environment_uses_isolated_codex_home(tmp_path: Path) -> No
     environment = build_codex_exec_environment(
         isolated_codex_home=codex_home,
         runtime_workspace=runtime_workspace,
-        base_environment={"PATH": "test-path"},
+        base_environment={
+            "PATH": "test-path",
+            "HOMEDRIVE": "C:",
+            "HOMEPATH": "\\Users\\example",
+        },
     )
 
-    assert environment == {"PATH": "test-path", "CODEX_HOME": str(codex_home.resolve())}
+    assert environment == {
+        "PATH": "test-path",
+        "CODEX_HOME": str(codex_home.resolve()),
+        "HOME": str((runtime_workspace / ".home").resolve()),
+        "USERPROFILE": str((runtime_workspace / ".home").resolve()),
+    }

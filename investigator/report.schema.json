@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "incident_id", "skill", "status", "claims", "root_cause"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "incident_id": {"type": "string"},
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "sha256"],
+      "properties": {
+        "id": {"type": "string"},
+        "version": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "status": {"enum": ["concluded", "insufficient-evidence"]},
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/claim"}
+    },
+    "root_cause": {"$ref": "#/$defs/claim"}
+  },
+  "$defs": {
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "table", "field", "value"],
+      "properties": {
+        "id": {"type": "string"},
+        "table": {"enum": ["incidents", "equipment_logs", "lot_genealogy", "incoming_inspection"]},
+        "field": {"type": "string"},
+        "value": {"type": ["string", "number", "integer", "boolean", "null"]}
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "citations"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1},
+        "citations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/citation"}
+        }
+      }
+    }
+  }
+}
