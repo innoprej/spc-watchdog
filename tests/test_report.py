@@ -13,6 +13,31 @@ from spc_watchdog.skill_mount import load_skill_mount
 from spc_watchdog.world import create_world
 
 ROOT = Path(__file__).resolve().parents[1]
+SCHEMA_PATH = ROOT / "investigator" / "report.schema.json"
+
+
+def _walk_schema(node: object):
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk_schema(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _walk_schema(value)
+
+
+def test_committed_report_schema_matches_strict_structured_output_shape() -> None:
+    """Regress the exact file passed to `codex exec --output-schema`."""
+
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+
+    assert schema["type"] == "object"
+    for node in _walk_schema(schema):
+        if "const" in node or "enum" in node:
+            assert "type" in node
+        if node.get("type") == "object":
+            assert node.get("additionalProperties") is False
+            assert set(node.get("required", [])) == set(node.get("properties", {}))
 
 
 @pytest.fixture
