@@ -66,7 +66,14 @@ def test_agent_messages_distinguish_hypothesis_from_structured_decision() -> Non
         "type": "item.completed",
         "item": {
             "type": "agent_message",
-            "text": '{"root_cause":{"text":"The lot is implicated."}}',
+            "text": '{"status":"concluded","root_cause":{"text":"The lot is implicated."}}',
+        },
+    }
+    provisional = {
+        "type": "item.completed",
+        "item": {
+            "type": "agent_message",
+            "text": '{"status":"insufficient-evidence","root_cause":{"text":"Still testing."}}',
         },
     }
 
@@ -75,4 +82,7 @@ def test_agent_messages_distinguish_hypothesis_from_structured_decision() -> Non
     )
     assert normalize_codex_event(decision, expected_skill=skill) == (
         ("decision", {"text": "The lot is implicated."}),
+    )
+    assert normalize_codex_event(provisional, expected_skill=skill) == (
+        ("hypothesis", {"text": "Still testing."}),
     )
