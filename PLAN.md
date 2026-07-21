@@ -65,21 +65,21 @@ No application scaffolding begins until this gate passes.
 
 - [x] A public-safe spike note records official source links, verified command mechanics, observed event examples, sandbox/working-directory findings, model-selection evidence, and any billing uncertainty.
 - [x] A minimal GPT-5.6 Sol Codex exec produces a parseable event stream and completes a registered MCP tool call under `read-only` sandboxing.
-- [ ] No prompt or runtime workspace contains the planted root cause, factory database, credentials, username, or absolute local path.
-- [ ] Rebuilding Scenario 1 with the same seed yields the same measurements, evidence IDs, and violation window.
-- [ ] Nelson Rules 1–3 pass focused pytest coverage, including exact threshold and sequence boundaries.
-- [ ] Scenario 1 streams to the dashboard and visibly flips the chart red from deterministic engine output.
-- [ ] `python run.py` starts the live application path; unavailable live prerequisites produce an explicit state rather than a silent replay.
-- [ ] `python run.py --mode replay` boots the skeleton without Codex credentials.
+- [x] No prompt or runtime workspace contains the planted root cause, factory database, credentials, username, or absolute local path.
+- [x] Rebuilding Scenario 1 with the same seed yields the same measurements, evidence IDs, and violation window.
+- [x] Nelson Rules 1–3 pass focused pytest coverage, including exact threshold and sequence boundaries.
+- [x] Scenario 1 streams to the dashboard and visibly flips the chart red from deterministic engine output.
+- [x] `python run.py` starts the live application path; unavailable live prerequisites produce an explicit state rather than a silent replay.
+- [x] `python run.py --mode replay` boots the skeleton without Codex credentials.
 - [ ] The Ubuntu CI job passes the clean-clone test, frontend check, and replay-mode boot smoke test.
-- [ ] The phase-close ritual in `AGENTS.md` passes with no unresolved CRITICAL review finding.
+- [x] The phase-close ritual in `AGENTS.md` passes with no unresolved CRITICAL review finding.
 
 ## Phase 2 — Complete the INVESTIGATE path
 
 ### Scope
 
 1. Implement the backend-owned, incident-scoped query broker and expose `query-equipment-logs`, `query-material-lots`, `query-incoming-inspection`, and `chart-context` as registered MCP tools.
-2. Create the dedicated Codex runtime template containing its public-safe investigation `AGENTS.md`, the initial OCAP skill, output schema, and tool launchers—but no database.
+2. Create the dedicated Codex runtime template containing its public-safe investigation `AGENTS.md`, the initial OCAP skill, output schema, and MCP contract—but no database; prove how the full skill body loads while shell remains unavailable before emitting a skill-load event.
 3. Launch one queued Codex exec investigation per incident and normalize its event stream into skill-load, hypothesis, tool-call, evidence, decision, and status events.
 4. Persist every run as sequence-numbered, schema-versioned JSONL and support WebSocket snapshot/resume.
 5. Validate `report.json`, verify every citation deterministically against the broker's canonical row value, and supply verification failures to one retry.
@@ -177,3 +177,12 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Decision | Phase 1 | Replace runtime CLI subprocess tools with backend-brokered MCP tools and remove phase budget stop rules. | The user preferred preserving a real sandbox boundary over taking the fastest application-enforced shortcut and explicitly removed budget as a constraint. |
 | 2026-07-21 | Discovery | Phase 1 | A GPT-5.6 Sol `codex exec` run completed `query_probe` under `read-only`, emitted one completed `mcp_tool_call`, emitted no shell command event, and returned the expected stable citation. | Project-scoped MCP configuration with `default_tools_approval_mode = "approve"` makes the allowlisted broker callable in headless mode; `auto` caused the call to be cancelled before dispatch. |
 | 2026-07-21 | Decision | Phase 1 | Adopt safe-sandbox Codex exec plus a database-free workspace and allowlisted MCP broker as the standard live runtime; keep `danger-full-access`, WSL/container, and direct API paths dormant. | The MCP re-spike passed every revised hard gate, so no weaker or duplicate runtime path is needed. |
+| 2026-07-21 | Review fix | Phase 1 | Keep the project MCP server disabled for contributor sessions and let the live backend enable the required server only after broker health succeeds. | The Phase 1 `/review` found that `required = true` plus `enabled = true` made ordinary Codex commands depend on a Phase 2 service that the repository could not yet start. |
+| 2026-07-21 | Critical discovery | Phase 1 | Do not treat native Windows `read-only` or beta permission-profile path rules as a read-isolation boundary. | Adversarial tool-event inspection showed that PowerShell returned both source and SQLite content even when the model's final JSON incorrectly claimed the reads were blocked. |
+| 2026-07-21 | Decision | Phase 1 | Remove every non-broker tool from investigators; use an external database-free workspace, isolated credential-only `CODEX_HOME`, `read-only` defense in depth, a serialized contract prompt, and an explicit MCP allowlist. | The final re-spike received the sterile contract and completed the MCP call with no other tool event, so the database is unreachable through model-visible tools. |
+| 2026-07-21 | Discovery | Phase 2 | Native progressive loading of a runtime `SKILL.md` body did not complete after shell removal. | Phase 2 must prove a truthful skill-mount mechanism before the feed labels a skill load; restoring broad shell access is not an acceptable shortcut. |
+| 2026-07-21 | Review fix | Phase 1 | Pin NumPy to the demonstrated `2.5.1` build and cover the WebSocket snapshot-to-Rule-1 sequence. | NumPy does not promise fixed `Generator` output across versions, and an HTTP-only CI smoke test could miss a broken chart stream. |
+| 2026-07-21 | Verification | Phase 1 | Keep the `ubuntu-latest` acceptance item open until a GitHub-hosted run exists. | The workflow and a local clean-clone equivalent pass, but this repository has no remote from which to obtain actual Ubuntu evidence. |
+| 2026-07-21 | Critical discovery | Phase 1 | `CODEX_HOME` isolation alone does not sanitize model context. | Prompt inspection still showed OS-home global skills and absolute project-document source labels, so an event-only pass was insufficient evidence. |
+| 2026-07-21 | Decision | Phase 1 | Disable environment context, automatic project docs, and all skill instructions for the sterile spike; serialize the public-safe contract into stdin. | Model-visible prompt inspection then contained the contract marker but no absolute path, user directory, username, environment block, or skills block. Phase 2 must isolate OS-home discovery before re-enabling only OCAP. |
+| 2026-07-21 | Timing | Phase 1 | The robust MCP boundary closed in about 89 minutes against its 60-minute re-spike timebox. | Initial transport success was insufficient; adversarial path reads, user-skill prompt leakage, and cross-platform tool defaults required additional negative verification before PASS. |

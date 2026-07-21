@@ -14,7 +14,7 @@ Phase 1 is working:
 - Typed Python code evaluates Nelson Rules 1–3. The model never decides whether a rule fired.
 - FastAPI streams the simulated line over WebSocket at the honestly labeled rate `1 real second = 1 simulated hour`.
 - The React control room flips from stable green to an out-of-control red verdict at the deterministic signal.
-- A GPT-5.6 Sol `codex exec` spike completed an allowlisted MCP broker tool call under a `read-only` sandbox.
+- A shell-free GPT-5.6 Sol `codex exec` spike completed an allowlisted MCP broker call under `read-only`.
 - Replay mode boots without Codex credentials.
 
 The full multi-hop investigation, citation gate, second scenario, and human-approved playbook change are the next phases. They are not claimed as complete yet.
@@ -89,7 +89,7 @@ The CI workflow repeats these checks on `ubuntu-latest` from a clean checkout.
 
 ## Runtime boundary evidence
 
-The runtime spike first proved that Windows safe sandboxes denied the planned `.cmd` and `.ps1` subprocess tools. The re-spike replaced them with a project-scoped Streamable HTTP MCP server. With an explicit allowlist and `default_tools_approval_mode = "approve"`, one GPT-5.6 Sol run completed the registered tool under `read-only`, emitted a completed `mcp_tool_call`, emitted no shell command, and returned the expected stable citation.
+The runtime spike first proved that Windows safe sandboxes denied the planned `.cmd` and `.ps1` subprocess tools. The MCP re-spike then caught a second issue: read-only and beta path profiles did not reliably prevent PowerShell from reading outside the working directory. The adopted Phase 1 invocation disables every discovered non-broker tool surface and automatic host-path context, serializes the public-safe runtime contract through stdin, isolates credentials from the workspace, keeps `read-only` as defense in depth, and exposes only a fixed Streamable HTTP MCP allowlist. A GPT-5.6 Sol run returned the expected stable citation with one MCP event and no other tool event. The committed MCP entry remains disabled for ordinary contributor sessions until the backend broker is healthy.
 
 The exact public-safe evidence and official documentation links are in [the runtime spike note](docs/codex-exec-runtime-spike.md).
 
@@ -110,7 +110,7 @@ In the finished product, each incident launches a separate Codex investigator on
 
 - All factory data is synthetic and the simulation clock is compressed.
 - Phase 1 renders the WATCH verdict and reserves the investigation/learning surfaces; it does not yet claim the end-to-end agent report or skill-approval flow.
-- The safe runtime boundary has been proven with a minimal MCP probe. The four incident-scoped factory tools and citation verifier arrive in Phase 2.
+- The shell-free MCP runtime boundary and sterile prompt have been proven with a minimal probe. Phase 1 suppresses every skill catalog because global discovery is OS-home based; Phase 2 must isolate that home and prove loading only the OCAP `SKILL.md` before claiming a skill-load event. The four incident-scoped tools and citation verifier also arrive there.
 - The CLI reports token usage but not a per-run currency charge, so this project does not claim a precise Codex-credit cost.
 
 ## License
