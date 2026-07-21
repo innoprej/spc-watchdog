@@ -13,6 +13,7 @@ BROKER_TOOL_NAMES = (
     "query_equipment_logs",
     "query_material_lots",
     "query_incoming_inspection",
+    "query_tool_life",
 )
 
 
@@ -75,5 +76,11 @@ def create_broker_mcp(
         """Return incoming inspection evidence for an in-scope lot."""
 
         return broker.query_incoming_inspection(incident_id, lot_id)
+
+    @server.tool(structured_output=True)
+    def query_tool_life(incident_id: str) -> list[dict[str, object]]:
+        """Return accumulated tool-cycle evidence for the active incident."""
+
+        return broker.query_tool_life(incident_id)
 
     return server

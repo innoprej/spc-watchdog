@@ -50,6 +50,29 @@ def test_retry_feedback_never_leaks_a_canonical_database_value() -> None:
     assert "secret-pass-value" not in feedback
 
 
+def test_retry_feedback_requests_a_missing_grounded_proposal_without_values() -> None:
+    """The retry may name the contract gap, never canonical evidence values."""
+
+    failure = CitationFailure(
+        claim_text="Required playbook-gap proposal",
+        citation=Citation(
+            id="tool-life-s2-002",
+            table="tool_life",
+            field="cycle_count",
+            value=9980,
+        ),
+        reason="canonical limit was secret-value",
+    )
+
+    feedback = runner_module._verification_feedback(
+        VerificationResult(False, (failure,), 1)
+    )
+
+    assert "grounded skill_change_proposal" in feedback
+    assert "secret-value" not in feedback
+    assert "9980" not in feedback
+
+
 def test_attempt_timeout_terminates_a_hung_codex_process(
     monkeypatch: MonkeyPatch, tmp_path: Path
 ) -> None:

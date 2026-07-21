@@ -92,6 +92,12 @@ class InvestigationCoordinator:
             if report_path.is_file() and state.status in {"completed", "inconclusive"}
             else None
         )
+        proposal_path = state.run_directory / "proposal.json"
+        proposal = (
+            json.loads(proposal_path.read_text(encoding="utf-8"))
+            if proposal_path.is_file() and state.status in {"completed", "inconclusive"}
+            else None
+        )
         return {
             "schema_version": "1.0",
             "incident_id": incident_id,
@@ -99,6 +105,8 @@ class InvestigationCoordinator:
             "status": state.status,
             "events": [event.as_dict() for event in events],
             "report": report,
+            "proposal": proposal,
+            "replay_phase": None,
         }
 
     def _work(self) -> None:

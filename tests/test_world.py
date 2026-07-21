@@ -9,6 +9,7 @@ import pytest
 
 from spc_watchdog.nelson import evaluate_series
 from spc_watchdog.world import (
+    SCENARIO_2_ID,
     WARMUP_COUNT,
     canonical_snapshot,
     create_world,
@@ -76,8 +77,8 @@ def test_scenario_reset_preserves_approved_ocap_version(tmp_path: Path) -> None:
     create_world(database)
     with sqlite3.connect(database) as connection:
         connection.execute(
-            "INSERT INTO ocap_versions VALUES (?, ?, ?, ?)",
-            ("ocap-mean-shift-v2", "mean-shift", 2, "active"),
+            "INSERT INTO ocap_versions VALUES (?, ?, ?, ?, ?)",
+            ("ocap-mean-shift-v2", "mean-shift", 2, "active", "version two"),
         )
         connection.execute(
             "UPDATE ocap_versions SET status = ? WHERE id = ?",
@@ -88,9 +89,37 @@ def test_scenario_reset_preserves_approved_ocap_version(tmp_path: Path) -> None:
 
     with sqlite3.connect(database) as connection:
         versions = connection.execute(
-            "SELECT id, status FROM ocap_versions ORDER BY version"
+            """SELECT id, status FROM ocap_versions
+               WHERE signal_family = 'mean-shift' ORDER BY version"""
         ).fetchall()
     assert versions == [
         ("ocap-mean-shift-v1", "superseded"),
         ("ocap-mean-shift-v2", "active"),
     ]
+
+
+def test_scenario_2_rule_3_precedes_discoverable_tool_life_limit(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "scenario-2.db"
+    summary = create_world(database, SCENARIO_2_ID)
+    rows = load_measurements(database, SCENARIO_2_ID)
+    center, sigma = derive_control_limits(rows)
+    violations = evaluate_series([row.value for row in rows], center=center, sigma=sigma)
+    first = violations[0]
+
+    with sqlite3.connect(database) as connection:
+        tool_life = connection.execute(
+            """SELECT cycle_count, replacement_limit, status
+               FROM tool_life WHERE id = ?""",
+            ("tool-life-s2-002",),
+        ).fetchone()
+        genealogy = connection.execute(
+            "SELECT COUNT(*) FROM lot_genealogy WHERE scenario = ?",
+            (SCENARIO_2_ID,),
+        ).fetchone()[0]
+
+    assert first.rule == 3
+    assert rows[first.end_index].sim_hour == summary.first_shift_hour == 29
+    assert tool_life == (9980, 10000, "replacement-due")
+    assert genealogy == 1

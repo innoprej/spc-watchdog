@@ -8,9 +8,10 @@ from pathlib import Path
 import pytest
 
 from spc_watchdog.broker import InvestigationBroker, open_incident
+from spc_watchdog.learning import load_active_skill
 from spc_watchdog.report import parse_report_json, verify_report
 from spc_watchdog.skill_mount import load_skill_mount
-from spc_watchdog.world import create_world
+from spc_watchdog.world import SCENARIO_2_ID, create_world
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "investigator" / "report.schema.json"
@@ -213,3 +214,65 @@ def test_report_schema_rejects_a_claim_without_citations(
 
     with pytest.raises(ValueError, match="invalid investigation report"):
         parse_report_json(json.dumps(payload))
+
+
+def test_v1_trend_report_requires_proposal_for_decisive_tool_life(
+    tmp_path: Path,
+) -> None:
+    """A v1 evidence-source gap cannot silently disappear from the LEARN loop."""
+
+    database = tmp_path / "world.db"
+    create_world(database, SCENARIO_2_ID)
+    open_incident(
+        database,
+        incident_id="incident-s2-001",
+        scenario=SCENARIO_2_ID,
+        opened_sim_hour=29,
+        primary_rule=3,
+    )
+    broker = InvestigationBroker(
+        database_path=database, incident_id="incident-s2-001"
+    )
+    skill = load_active_skill(database, "trend")
+    payload = {
+        "schema_version": "1.0",
+        "incident_id": "incident-s2-001",
+        "skill": {
+            "id": skill.id,
+            "version": skill.version,
+            "sha256": skill.sha256,
+        },
+        "status": "concluded",
+        "claims": [
+            {
+                "text": "Tool life is near its replacement limit.",
+                "citations": [
+                    {
+                        "id": "tool-life-s2-002",
+                        "table": "tool_life",
+                        "field": "status",
+                        "value": "replacement-due",
+                    }
+                ],
+            }
+        ],
+        "root_cause": {
+            "text": "Tool wear caused the trend.",
+            "citations": [
+                {
+                    "id": "tool-life-s2-002",
+                    "table": "tool_life",
+                    "field": "cycle_count",
+                    "value": 9980,
+                }
+            ],
+        },
+        "skill_change_proposal": None,
+    }
+
+    result = verify_report(
+        parse_report_json(json.dumps(payload)), broker=broker, skill=skill
+    )
+
+    assert not result.passed
+    assert result.failures[0].claim_text == "Required playbook-gap proposal"

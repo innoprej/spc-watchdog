@@ -45,6 +45,16 @@ class InvestigationBroker:
         "incidents": frozenset(
             {"scenario", "opened_sim_hour", "primary_rule", "status"}
         ),
+        "tool_life": frozenset(
+            {
+                "equipment_id",
+                "sim_hour",
+                "cycle_count",
+                "replacement_limit",
+                "last_tool_change_hour",
+                "status",
+            }
+        ),
     }
 
     def __init__(self, *, database_path: Path, incident_id: str) -> None:
@@ -162,6 +172,21 @@ class InvestigationBroker:
             ).fetchall()
         return self._compact_rows(rows, "incoming_inspection")
 
+    def query_tool_life(self, incident_id: str) -> list[dict[str, Any]]:
+        """Return accumulated tool cycles at or before the active incident."""
+
+        self._require_incident(incident_id)
+        with self._connect() as connection:
+            rows = connection.execute(
+                """SELECT id, equipment_id, sim_hour, cycle_count,
+                          replacement_limit, last_tool_change_hour, status
+                   FROM tool_life
+                   WHERE scenario = ? AND sim_hour <= ?
+                   ORDER BY sim_hour, id""",
+                (self._scope.scenario, self._scope.opened_sim_hour),
+            ).fetchall()
+        return self._compact_rows(rows, "tool_life")
+
     def canonical_value(self, *, table: str, row_id: str, field: str) -> Any:
         """Resolve one citation through an allowlisted table and field."""
 
@@ -180,6 +205,11 @@ class InvestigationBroker:
             visible_ids = {
                 str(row["id"])
                 for row in self.query_material_lots(self._scope.id)
+            }
+        elif table == "tool_life":
+            visible_ids = {
+                str(row["id"])
+                for row in self.query_tool_life(self._scope.id)
             }
         else:
             genealogy = self.query_material_lots(self._scope.id)

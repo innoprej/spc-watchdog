@@ -17,6 +17,7 @@ from spc_watchdog.broker import (
 from spc_watchdog.broker_mcp import BROKER_TOOL_NAMES, create_broker_mcp
 from spc_watchdog.skill_mount import load_skill_mount
 from spc_watchdog.world import create_world
+from spc_watchdog.world import SCENARIO_2_ID
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_PATH = ROOT / "investigator" / "skills" / "mean-shift-ocap" / "SKILL.md"
@@ -134,3 +135,30 @@ def test_mcp_skill_load_returns_exact_body_and_only_registered_tools(
     assert result["sha256"] == hashlib.sha256(body.encode("utf-8")).hexdigest()
     assert "lot-s1-b" not in result["body"]
     assert "root cause" in result["body"]
+
+
+def test_scenario_2_broker_exposes_tool_life_without_arbitrary_sql(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "scenario-2.db"
+    create_world(database, SCENARIO_2_ID)
+    open_incident(
+        database,
+        incident_id="incident-s2-001",
+        scenario=SCENARIO_2_ID,
+        opened_sim_hour=29,
+        primary_rule=3,
+    )
+    scoped = InvestigationBroker(
+        database_path=database, incident_id="incident-s2-001"
+    )
+
+    rows = scoped.query_tool_life("incident-s2-001")
+
+    assert [(row["id"], row["cycle_count"], row["status"]) for row in rows] == [
+        ("tool-life-s2-001", 8300, "monitoring"),
+        ("tool-life-s2-002", 9980, "replacement-due"),
+    ]
+    assert scoped.canonical_value(
+        table="tool_life", row_id="tool-life-s2-002", field="replacement_limit"
+    ) == 10000

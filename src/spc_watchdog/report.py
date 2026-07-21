@@ -18,7 +18,11 @@ class Citation(BaseModel):
 
     id: str
     table: Literal[
-        "incidents", "equipment_logs", "lot_genealogy", "incoming_inspection"
+        "incidents",
+        "equipment_logs",
+        "lot_genealogy",
+        "incoming_inspection",
+        "tool_life",
     ]
     field: str
     value: str | int | float | bool | None
@@ -43,6 +47,16 @@ class SkillReference(BaseModel):
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class SkillChangeProposal(BaseModel):
+    """One evidence-grounded edit suggestion; the host creates the diff."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_version_id: str
+    rationale: Claim
+    proposed_step: str = Field(min_length=1)
+
+
 class InvestigationReport(BaseModel):
     """The schema-constrained report accepted from Codex exec."""
 
@@ -54,6 +68,7 @@ class InvestigationReport(BaseModel):
     status: Literal["concluded", "insufficient-evidence"]
     claims: list[Claim] = Field(min_length=1)
     root_cause: Claim
+    skill_change_proposal: SkillChangeProposal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,8 +146,50 @@ def verify_report(
                 reason="report does not identify the exact skill body returned by MCP",
             )
         )
+    proposal = report.skill_change_proposal
+    if proposal is not None and proposal.base_version_id != skill.id:
+        failures.append(
+            CitationFailure(
+                claim_text="Skill proposal base version",
+                citation=Citation(
+                    id=report.incident_id,
+                    table="incidents",
+                    field="status",
+                    value="proposal-base-mismatch",
+                ),
+                reason="proposal does not target the exact loaded skill version",
+            )
+        )
+
+    all_report_citations = [
+        citation
+        for claim in [*report.claims, report.root_cause]
+        for citation in claim.citations
+    ]
+    decisive_tool_life = next(
+        (citation for citation in all_report_citations if citation.table == "tool_life"),
+        None,
+    )
+    if (
+        skill.signal_family == "trend"
+        and skill.version == 1
+        and decisive_tool_life is not None
+        and proposal is None
+    ):
+        failures.append(
+            CitationFailure(
+                claim_text="Required playbook-gap proposal",
+                citation=decisive_tool_life,
+                reason=(
+                    "the v1 trend playbook did not explicitly prescribe the decisive "
+                    "tool-life evidence source"
+                ),
+            )
+        )
 
     claims = [*report.claims, report.root_cause]
+    if proposal is not None:
+        claims.append(proposal.rationale)
     citation_count = 0
     for claim in claims:
         for citation in claim.citations:

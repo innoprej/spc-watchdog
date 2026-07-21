@@ -26,8 +26,9 @@ from .investigation_runtime import (
     build_codex_exec_environment,
     build_investigation_prompt,
 )
+from .learning import file_change_proposal, load_active_skill
 from .report import InvestigationReport, VerificationResult, parse_report_json, verify_report
-from .skill_mount import SkillMount, load_skill_mount
+from .skill_mount import SkillMount
 
 INVESTIGATOR_TEMPLATE = PROJECT_ROOT / "investigator"
 CODEX_ATTEMPT_TIMEOUT_SECONDS = 180.0
@@ -42,6 +43,7 @@ class InvestigationOutcome:
     report: InvestigationReport | None
     verification: VerificationResult | None
     run_directory: Path
+    proposal: dict[str, object] | None = None
 
 
 def _available_port() -> int:
@@ -78,7 +80,9 @@ def _resolve_codex_executable() -> str:
     raise RuntimeError("Codex CLI was not found on PATH")
 
 
-def _install_runtime_template(runtime_workspace: Path) -> SkillMount:
+def _install_runtime_template(
+    runtime_workspace: Path, *, database_path: Path, signal_family: str
+) -> SkillMount:
     """Copy only public-safe contract assets into the disposable workspace."""
 
     runtime_workspace.mkdir(parents=True)
@@ -87,19 +91,11 @@ def _install_runtime_template(runtime_workspace: Path) -> SkillMount:
         INVESTIGATOR_TEMPLATE / "report.schema.json",
         runtime_workspace / "report.schema.json",
     )
-    skill_directory = runtime_workspace / ".agents" / "skills" / "mean-shift-ocap"
+    skill = load_active_skill(database_path, signal_family)
+    skill_directory = runtime_workspace / ".agents" / "skills" / skill.name
     skill_directory.mkdir(parents=True)
-    shutil.copy2(
-        INVESTIGATOR_TEMPLATE / "skills" / "mean-shift-ocap" / "SKILL.md",
-        skill_directory / "SKILL.md",
-    )
-    return load_skill_mount(
-        skill_directory / "SKILL.md",
-        skill_id="ocap-mean-shift-v1",
-        name="mean-shift-ocap",
-        signal_family="mean-shift",
-        version=1,
-    )
+    (skill_directory / "SKILL.md").write_text(skill.body, encoding="utf-8")
+    return skill
 
 
 def _install_credential_only_codex_home(source: Path, destination: Path) -> None:
@@ -181,14 +177,22 @@ def _run_attempt(
     raw_event_path: Path,
     retry_feedback: str | None,
     codex_executable: str,
+    signal_family: str = "mean-shift",
+    enabled_tools: tuple[str, ...] = BROKER_TOOL_NAMES,
     attempt_timeout_seconds: float = CODEX_ATTEMPT_TIMEOUT_SECONDS,
 ) -> tuple[int, str]:
     output_path = runtime_workspace / f"report-attempt-{attempt}.json"
     contract = (runtime_workspace / "AGENTS.md").read_text(encoding="utf-8")
     task = (
         f"Investigate {incident_id}. First call load_ocap_skill for signal family "
-        "mean-shift, then follow the complete returned body. Use the registered "
-        "tools to eliminate or implicate hypotheses and return the cited report."
+        f"{signal_family}, then follow the complete returned body. Use the registered "
+        "tools to eliminate or implicate hypotheses and return the cited report. "
+        "Before returning, compare every evidence source you used with the explicit "
+        "steps in the loaded skill. If a decisive source was not explicitly prescribed, "
+        "the report must include a grounded skill_change_proposal for the exact loaded "
+        "version; otherwise it must be null. A proposed step must place that decisive "
+        "source immediately after the nearest necessary preliminary check and before "
+        "unrelated evidence branches so the approved version avoids unnecessary calls."
     )
     if retry_feedback:
         task += (
@@ -200,7 +204,7 @@ def _run_attempt(
         runtime_workspace=runtime_workspace,
         output_schema=runtime_workspace / "report.schema.json",
         output_last_message=output_path,
-        enabled_tools=BROKER_TOOL_NAMES,
+        enabled_tools=enabled_tools,
         mcp_url=mcp_url,
         codex_executable=codex_executable,
     )
@@ -309,12 +313,21 @@ def _run_attempt(
 def _verification_feedback(result: VerificationResult) -> str:
     """Identify rejected citations without leaking canonical database values."""
 
-    return "\n".join(
-        f"- {failure.citation.table}/{failure.citation.id}."
-        f"{failure.citation.field}: citation did not verify; re-query it through "
-        "the registered broker tool"
-        for failure in result.failures
-    )
+    feedback: list[str] = []
+    for failure in result.failures:
+        if failure.claim_text == "Required playbook-gap proposal":
+            feedback.append(
+                "- The loaded playbook did not explicitly prescribe a decisive evidence "
+                "source used in the report. Include a grounded skill_change_proposal "
+                "targeting the exact loaded version."
+            )
+            continue
+        feedback.append(
+            f"- {failure.citation.table}/{failure.citation.id}."
+            f"{failure.citation.field}: citation did not verify; re-query it through "
+            "the registered broker tool"
+        )
+    return "\n".join(feedback)
 
 
 def run_live_investigation(
@@ -332,6 +345,12 @@ def run_live_investigation(
     event_log = EventLog(path=run_directory / "events.jsonl", run_id=run_id)
     raw_event_path = run_directory / "codex-events.raw.jsonl"
     broker = InvestigationBroker(database_path=database_path, incident_id=incident_id)
+    signal_family = "trend" if broker.scope.primary_rule == 3 else "mean-shift"
+    enabled_tools = tuple(
+        tool
+        for tool in BROKER_TOOL_NAMES
+        if signal_family == "trend" or tool != "query_tool_life"
+    )
     source_codex_home = user_codex_home or Path(
         os.environ.get("CODEX_HOME", Path.home() / ".codex")
     )
@@ -342,7 +361,11 @@ def run_live_investigation(
         temp_root = Path(temp)
         runtime_workspace = temp_root / "runtime"
         codex_home = temp_root / "codex-home"
-        skill = _install_runtime_template(runtime_workspace)
+        skill = _install_runtime_template(
+            runtime_workspace,
+            database_path=database_path,
+            signal_family=signal_family,
+        )
         _install_credential_only_codex_home(source_codex_home, codex_home)
         port = _available_port()
         mcp_url = f"http://127.0.0.1:{port}/mcp"
@@ -369,6 +392,8 @@ def run_live_investigation(
                     raw_event_path=raw_event_path,
                     retry_feedback=feedback,
                     codex_executable=codex_executable,
+                    signal_family=signal_family,
+                    enabled_tools=enabled_tools,
                 )
                 if return_code != 0:
                     return InvestigationOutcome(
@@ -406,6 +431,13 @@ def run_live_investigation(
                     (run_directory / "report.json").write_text(
                         last_report.model_dump_json(indent=2), encoding="utf-8"
                     )
+                    proposal = file_change_proposal(database_path, last_report, skill)
+                    proposal_payload = proposal.as_dict() if proposal is not None else None
+                    if proposal_payload is not None:
+                        (run_directory / "proposal.json").write_text(
+                            json.dumps(proposal_payload, indent=2), encoding="utf-8"
+                        )
+                        event_log.append("proposal", proposal_payload)
                     event_log.append(
                         "status",
                         {
@@ -418,7 +450,12 @@ def run_live_investigation(
                         },
                     )
                     return InvestigationOutcome(
-                        run_id, attempt, last_report, last_verification, run_directory
+                        run_id,
+                        attempt,
+                        last_report,
+                        last_verification,
+                        run_directory,
+                        proposal_payload,
                     )
                 feedback = _verification_feedback(last_verification)
 

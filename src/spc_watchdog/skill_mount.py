@@ -39,3 +39,14 @@ def load_skill_mount(
         raise ValueError("OCAP skill metadata does not match the active version")
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     return SkillMount(skill_id, name, signal_family, version, digest, body)
+
+
+def build_skill_mount(
+    body: str, *, skill_id: str, name: str, signal_family: str, version: int
+) -> SkillMount:
+    """Create a content-addressed mount from a version stored in SQLite."""
+
+    if not body.startswith("---\n") or f"name: {name}\n" not in body:
+        raise ValueError("stored OCAP skill metadata does not match the active version")
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return SkillMount(skill_id, name, signal_family, version, digest, body)

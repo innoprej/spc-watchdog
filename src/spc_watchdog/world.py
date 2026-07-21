@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 
 SCENARIO_ID = "scenario-1"
+SCENARIO_2_ID = "scenario-2"
 SEED = 41021
 CENTER = 10.0
 SIGMA = 0.25
@@ -90,6 +91,16 @@ CREATE TABLE IF NOT EXISTS incoming_inspection (
     upper_limit REAL NOT NULL,
     disposition TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tool_life (
+    id TEXT PRIMARY KEY,
+    scenario TEXT NOT NULL,
+    equipment_id TEXT NOT NULL,
+    sim_hour INTEGER NOT NULL,
+    cycle_count INTEGER NOT NULL,
+    replacement_limit INTEGER NOT NULL,
+    last_tool_change_hour INTEGER NOT NULL,
+    status TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS incidents (
     id TEXT PRIMARY KEY,
     scenario TEXT NOT NULL,
@@ -102,6 +113,7 @@ CREATE TABLE IF NOT EXISTS ocap_versions (
     signal_family TEXT NOT NULL,
     version INTEGER NOT NULL,
     status TEXT NOT NULL,
+    body TEXT NOT NULL,
     UNIQUE (signal_family, version)
 );
 CREATE TABLE IF NOT EXISTS change_proposals (
@@ -109,7 +121,12 @@ CREATE TABLE IF NOT EXISTS change_proposals (
     incident_id TEXT NOT NULL,
     base_version_id TEXT NOT NULL,
     status TEXT NOT NULL,
-    patch TEXT NOT NULL
+    rationale TEXT NOT NULL DEFAULT '',
+    evidence_json TEXT NOT NULL DEFAULT '[]',
+    proposed_step TEXT NOT NULL DEFAULT '',
+    patch TEXT NOT NULL,
+    proposed_body TEXT NOT NULL DEFAULT '',
+    approved_version_id TEXT
 );
 CREATE TABLE IF NOT EXISTS event_metadata (
     key TEXT PRIMARY KEY,
@@ -122,10 +139,13 @@ def _iso_at(origin: datetime, hour: int) -> str:
     return (origin + timedelta(hours=hour)).isoformat().replace("+00:00", "Z")
 
 
-def generate_measurements() -> tuple[Measurement, ...]:
-    """Create AR(1) measurements plus the discoverable Scenario 1 lot shift."""
+def generate_measurements(scenario: str = SCENARIO_ID) -> tuple[Measurement, ...]:
+    """Create AR(1) measurements plus one deterministic discoverable cause."""
 
-    rng = np.random.default_rng(SEED)
+    if scenario not in {SCENARIO_ID, SCENARIO_2_ID}:
+        raise ValueError(f"unknown scenario: {scenario}")
+    seed = SEED
+    rng = np.random.default_rng(seed)
     phi = 0.42
     innovation_sigma = SIGMA * math.sqrt(1 - phi**2)
     residual = 0.0
@@ -138,22 +158,29 @@ def generate_measurements() -> tuple[Measurement, ...]:
 
         # The scenario plant is deterministic: lot B begins at hour 24, and
         # its measurable process effect appears two hours later.
-        if hour == 26:
-            value = CENTER + 3.35 * SIGMA
-        elif hour > 26:
-            value = CENTER + max(0.22, min(0.88, 0.62 + residual))
+        if scenario == SCENARIO_ID:
+            if hour == 26:
+                value = CENTER + 3.35 * SIGMA
+            elif hour > 26:
+                value = CENTER + max(0.22, min(0.88, 0.62 + residual))
+        elif 24 <= hour <= 29:
+            value = CENTER - 0.3 + (hour - 24) * 0.12
 
-        lot_id = "lot-s1-b" if hour >= 24 else "lot-s1-a"
         values.append(round(value, 4))
 
+    suffix = "s1" if scenario == SCENARIO_ID else "s2"
     return tuple(
         Measurement(
-            id=f"measurement-s1-{hour:03d}",
+            id=f"measurement-{suffix}-{hour:03d}",
             sequence=hour,
             sim_hour=hour,
             sim_timestamp=_iso_at(SIM_START, hour),
             value=value,
-            lot_id="lot-s1-b" if hour >= 24 else "lot-s1-a",
+            lot_id=(
+                "lot-s1-b"
+                if scenario == SCENARIO_ID and hour >= 24
+                else "lot-s1-a" if scenario == SCENARIO_ID else "lot-s2-a"
+            ),
         )
         for hour, value in enumerate(values)
     )
@@ -170,14 +197,35 @@ def derive_control_limits(
     return statistics.fmean(warmup), statistics.stdev(warmup)
 
 
-def create_world(path: Path) -> WorldSummary:
-    """Replace generated state with the canonical fixed-seed Scenario 1 world."""
+def create_world(path: Path, scenario: str = SCENARIO_ID) -> WorldSummary:
+    """Replace one scenario while preserving approved OCAP versions and proposals."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    measurements = generate_measurements()
+    measurements = generate_measurements(scenario)
     derived_center, derived_sigma = derive_control_limits(measurements)
     with sqlite3.connect(path) as connection:
         connection.executescript(SCHEMA)
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(ocap_versions)")
+        }
+        if "body" not in columns:
+            connection.execute(
+                "ALTER TABLE ocap_versions ADD COLUMN body TEXT NOT NULL DEFAULT ''"
+            )
+        proposal_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(change_proposals)")
+        }
+        for name, declaration in (
+            ("rationale", "TEXT NOT NULL DEFAULT ''"),
+            ("evidence_json", "TEXT NOT NULL DEFAULT '[]'"),
+            ("proposed_step", "TEXT NOT NULL DEFAULT ''"),
+            ("proposed_body", "TEXT NOT NULL DEFAULT ''"),
+            ("approved_version_id", "TEXT"),
+        ):
+            if name not in proposal_columns:
+                connection.execute(
+                    f"ALTER TABLE change_proposals ADD COLUMN {name} {declaration}"
+                )
         # Scenario resets replace synthetic production state but intentionally
         # preserve approved OCAP versions and their proposal history.
         for table in (
@@ -186,9 +234,10 @@ def create_world(path: Path) -> WorldSummary:
             "material_lots",
             "lot_genealogy",
             "incoming_inspection",
+            "tool_life",
             "incidents",
         ):
-            connection.execute(f"DELETE FROM {table} WHERE scenario = ?", (SCENARIO_ID,))
+            connection.execute(f"DELETE FROM {table} WHERE scenario = ?", (scenario,))
         connection.execute("DELETE FROM event_metadata")
         connection.executemany(
             """INSERT INTO measurements
@@ -197,7 +246,7 @@ def create_world(path: Path) -> WorldSummary:
             [
                 (
                     row.id,
-                    SCENARIO_ID,
+                    scenario,
                     row.sequence,
                     row.sim_hour,
                     row.sim_timestamp,
@@ -208,57 +257,72 @@ def create_world(path: Path) -> WorldSummary:
                 for row in measurements
             ],
         )
+        equipment_rows = (
+            [
+                ("equipment-s1-001", scenario, 18, "press-07", "preventive-check", "pass", "Pressure, alignment, and vibration checks within standard."),
+                ("equipment-s1-002", scenario, 25, "press-07", "operator-check", "pass", "No alarm, adjustment, or unplanned stop recorded."),
+            ]
+            if scenario == SCENARIO_ID
+            else [
+                ("equipment-s2-001", scenario, 20, "press-07", "preventive-check", "pass", "Alignment, lubrication, and vibration checks within standard."),
+                ("equipment-s2-002", scenario, 28, "press-07", "operator-check", "pass", "No alarm or adjustment recorded during the developing trend."),
+            ]
+        )
         connection.executemany(
             "INSERT INTO equipment_logs VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [
-                (
-                    "equipment-s1-001",
-                    SCENARIO_ID,
-                    18,
-                    "press-07",
-                    "preventive-check",
-                    "pass",
-                    "Pressure, alignment, and vibration checks within standard.",
-                ),
-                (
-                    "equipment-s1-002",
-                    SCENARIO_ID,
-                    25,
-                    "press-07",
-                    "operator-check",
-                    "pass",
-                    "No alarm, adjustment, or unplanned stop recorded.",
-                ),
-            ],
+            equipment_rows,
+        )
+        lots = (
+            [("lot-s1-a", scenario, "alloy-feedstock", "source-14", 0), ("lot-s1-b", scenario, "alloy-feedstock", "source-14", 22)]
+            if scenario == SCENARIO_ID
+            else [("lot-s2-a", scenario, "alloy-feedstock", "source-14", 0)]
         )
         connection.executemany(
             "INSERT INTO material_lots VALUES (?, ?, ?, ?, ?)",
-            [
-                ("lot-s1-a", SCENARIO_ID, "alloy-feedstock", "source-14", 0),
-                ("lot-s1-b", SCENARIO_ID, "alloy-feedstock", "source-14", 22),
-            ],
+            lots,
+        )
+        genealogy = (
+            [("genealogy-s1-001", scenario, "line-07", "lot-s1-a", 0, 24), ("genealogy-s1-002", scenario, "line-07", "lot-s1-b", 24, None)]
+            if scenario == SCENARIO_ID
+            else [("genealogy-s2-001", scenario, "line-07", "lot-s2-a", 0, None)]
         )
         connection.executemany(
             "INSERT INTO lot_genealogy VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                ("genealogy-s1-001", SCENARIO_ID, "line-07", "lot-s1-a", 0, 24),
-                ("genealogy-s1-002", SCENARIO_ID, "line-07", "lot-s1-b", 24, None),
-            ],
+            genealogy,
+        )
+        inspections = (
+            [("inspection-s1-001", scenario, "lot-s1-a", "hardness", 47.8, 44.0, 52.0, "accepted"), ("inspection-s1-002", scenario, "lot-s1-b", "hardness", 51.8, 44.0, 52.0, "accepted-marginal")]
+            if scenario == SCENARIO_ID
+            else [("inspection-s2-001", scenario, "lot-s2-a", "hardness", 48.1, 44.0, 52.0, "accepted")]
         )
         connection.executemany(
             "INSERT INTO incoming_inspection VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                ("inspection-s1-001", SCENARIO_ID, "lot-s1-a", "hardness", 47.8, 44.0, 52.0, "accepted"),
-                ("inspection-s1-002", SCENARIO_ID, "lot-s1-b", "hardness", 51.8, 44.0, 52.0, "accepted-marginal"),
-            ],
+            inspections,
         )
-        connection.execute(
-            "INSERT OR IGNORE INTO ocap_versions VALUES (?, ?, ?, ?)",
-            ("ocap-mean-shift-v1", "mean-shift", 1, "active"),
+        if scenario == SCENARIO_2_ID:
+            connection.executemany(
+                "INSERT INTO tool_life VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("tool-life-s2-001", scenario, "press-07", 18, 8300, 10000, 0, "monitoring"),
+                    ("tool-life-s2-002", scenario, "press-07", 29, 9980, 10000, 0, "replacement-due"),
+                ],
+            )
+        skill_root = Path(__file__).resolve().parents[2] / "investigator" / "skills"
+        defaults = [
+            ("ocap-mean-shift-v1", "mean-shift", 1, "active", (skill_root / "mean-shift-ocap" / "SKILL.md").read_text(encoding="utf-8")),
+            ("ocap-trend-v1", "trend", 1, "active", (skill_root / "trend-ocap" / "SKILL.md").read_text(encoding="utf-8")),
+        ]
+        connection.executemany(
+            "INSERT OR IGNORE INTO ocap_versions VALUES (?, ?, ?, ?, ?)", defaults
         )
+        for skill_id, _, _, _, body in defaults:
+            connection.execute(
+                "UPDATE ocap_versions SET body = ? WHERE id = ? AND body = ''",
+                (body, skill_id),
+            )
         metadata = {
             "schema_version": "1",
-            "scenario": SCENARIO_ID,
+            "scenario": scenario,
             "seed": str(SEED),
             "center": str(derived_center),
             "sigma": str(derived_sigma),
@@ -268,16 +332,26 @@ def create_world(path: Path) -> WorldSummary:
             "INSERT INTO event_metadata VALUES (?, ?)", metadata.items()
         )
 
-    return WorldSummary(SCENARIO_ID, SEED, len(measurements), 26, 24)
+    return WorldSummary(
+        scenario,
+        SEED,
+        len(measurements),
+        26 if scenario == SCENARIO_ID else 29,
+        24 if scenario == SCENARIO_ID else 0,
+    )
 
 
-def load_measurements(path: Path) -> tuple[Measurement, ...]:
+def load_measurements(path: Path, scenario: str | None = None) -> tuple[Measurement, ...]:
     """Read the compact chart stream without leaking the database to an agent."""
 
     with sqlite3.connect(path) as connection:
+        active_scenario = scenario or connection.execute(
+            "SELECT value FROM event_metadata WHERE key = 'scenario'"
+        ).fetchone()[0]
         rows = connection.execute(
             """SELECT id, sequence, sim_hour, sim_timestamp, value, lot_id
-               FROM measurements ORDER BY sequence"""
+               FROM measurements WHERE scenario = ? ORDER BY sequence""",
+            (active_scenario,),
         ).fetchall()
     return tuple(Measurement(*row) for row in rows)
 
