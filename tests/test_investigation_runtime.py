@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from spc_watchdog.investigation_runtime import (
+    PROJECT_ROOT,
     build_codex_exec_command,
     build_codex_exec_environment,
     build_investigation_prompt,
@@ -96,7 +97,7 @@ def test_investigator_command_exposes_only_explicit_tool_allowlist(tmp_path: Pat
 
 
 def test_investigator_command_rejects_runtime_inside_source_repository() -> None:
-    runtime_workspace = Path("runs") / "unsafe-runtime"
+    runtime_workspace = PROJECT_ROOT / "runs" / "unsafe-runtime"
 
     with pytest.raises(ValueError, match="outside the source repository"):
         build_codex_exec_command(
