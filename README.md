@@ -8,16 +8,20 @@ This repository is being built for OpenAI Build Week in the Work & Productivity 
 
 ## Current build status
 
-Phase 1 is working:
+Phase 2 is working end to end for Scenario 1:
 
 - A fixed-seed SQLite factory produces AR(1) measurements and a discoverable material-lot shift.
 - Typed Python code evaluates Nelson Rules 1–3. The model never decides whether a rule fired.
 - FastAPI streams the simulated line over WebSocket at the honestly labeled rate `1 real second = 1 simulated hour`.
 - The React control room flips from stable green to an out-of-control red verdict at the deterministic signal.
-- A shell-free GPT-5.6 Sol `codex exec` spike completed an allowlisted MCP broker call under `read-only`.
+- The backend queues one shell-free GPT-5.6 Sol Codex investigator in a sterile, database-free runtime and exposes only an incident-scoped MCP broker.
+- The live activity feed distinguishes the exact OCAP skill delivery, hypotheses, allowlisted tool calls, returned evidence, the root-cause decision, and deterministic verification.
+- The investigator eliminates clean equipment, finds the two-hour lot transition, and confirms the accepted-marginal incoming inspection without the prompt or playbook naming that answer.
+- The report renders only after every cited table, row, field, and value passes a fresh SQLite lookup. One verifier-informed retry is visible and an exhausted failure stays out of the official verdict.
+- Sequence-numbered JSONL lets a reconnect resume without duplicating acknowledged activity.
 - Replay mode boots without Codex credentials.
 
-The full multi-hop investigation, citation gate, second scenario, and human-approved playbook change are the next phases. They are not claimed as complete yet.
+Scenario 2, the human-approved playbook change, and committed full replay fixtures remain Phase 3 work. They are not claimed as complete yet.
 
 ## Product architecture
 
@@ -66,13 +70,13 @@ python run.py --mode replay
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Replay requires no credentials and always displays `DETERMINISTIC REPLAY`.
 
-The Phase 1 live WATCH stream can be started with:
+The live WATCH + INVESTIGATE path can be started with:
 
 ```bash
 python run.py --mode live
 ```
 
-Live agent investigation requires an authenticated Codex CLI once Phase 2 is connected. The UI reports a missing CLI explicitly; it never silently substitutes replay.
+Live investigation requires an installed, authenticated Codex CLI with access to GPT-5.6 Sol. The UI reports a missing CLI explicitly; it never silently substitutes replay. The run uses the user's Codex login and credits rather than an API key.
 
 ## Verification
 
@@ -109,8 +113,9 @@ In the finished product, each incident launches a separate Codex investigator on
 ## Honest limitations
 
 - All factory data is synthetic and the simulation clock is compressed.
-- Phase 1 renders the WATCH verdict and reserves the investigation/learning surfaces; it does not yet claim the end-to-end agent report or skill-approval flow.
-- The shell-free MCP runtime boundary and sterile prompt have been proven with a minimal probe. Phase 1 suppresses every skill catalog because global discovery is OS-home based; Phase 2 must isolate that home and prove loading only the OCAP `SKILL.md` before claiming a skill-load event. The four incident-scoped tools and citation verifier also arrive there.
+- Scenario 1 proves the complete WATCH and INVESTIGATE path; the LEARN proposal and approval flow is not implemented yet.
+- The activity feed labels an OCAP skill load only when a completed MCP result contains the exact skill body and digest. The runtime copies the public-safe contract into a disposable workspace, isolates `CODEX_HOME` to authentication only, disables shell and host-context discovery, and leaves `read-only` enabled as defense in depth.
+- Replay currently proves credential-free boot and deterministic WATCH playback. Committed investigation fixtures, report playback, and the 1x/2x/4x control arrive in Phase 3.
 - The CLI reports token usage but not a per-run currency charge, so this project does not claim a precise Codex-credit cost.
 
 ## License

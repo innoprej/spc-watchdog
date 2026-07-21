@@ -94,9 +94,9 @@ No application scaffolding begins until this gate passes.
 - [x] A live Scenario 1 run reaches the planted material-lot cause without the prompt or playbook naming the answer.
 - [x] The report cites the clean equipment evidence, lot transition, and marginal incoming-inspection evidence with stable IDs.
 - [x] A tampered row, field, or value fails deterministic citation verification in pytest.
-- [ ] One verification-informed retry is observable; an exhausted failure cannot contribute to the official verdict.
-- [ ] Refreshing or reconnecting the browser resumes the run from persisted event sequence numbers without duplicating feed items.
-- [ ] The activity feed visibly distinguishes agent hypotheses from deterministic tool results and verifier decisions.
+- [x] One verification-informed retry is observable; an exhausted failure cannot contribute to the official verdict.
+- [x] Refreshing or reconnecting the browser resumes the run from persisted event sequence numbers without duplicating feed items.
+- [x] The activity feed visibly distinguishes agent hypotheses from deterministic tool results and verifier decisions.
 - [x] Each run leaves a schema-versioned local JSONL artifact suitable for later sanitization and replay capture.
 - [ ] The phase-close ritual passes with no unresolved CRITICAL review finding.
 
@@ -194,3 +194,5 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Early checkpoint | Phase 2 | The first real end-to-end attempt reached GPT-5.6 Sol turn startup and MCP tool discovery, then failed before model inference because the report schema used `const` without an explicit `type`. | The API returned `invalid_json_schema` for `schema_version`; no skill or factory tool was invoked and no report was produced. The next attempt must first make the committed schema conform to the supported structured-output subset and add a regression test for that exact file. |
 | 2026-07-21 | Review fix | Phase 2 | Type every `const` and `enum`, require all object properties, and forbid extra object properties in the exact committed report schema. | These are the strict Structured Outputs constraints exercised by `codex exec`; a focused regression now walks the committed file rather than validating an unrelated in-memory schema. |
 | 2026-07-21 | Verification | Phase 2 | The second end-to-end run passed on its first Codex attempt with the exact OCAP body delivered through MCP, five completed allowlisted calls, no command/file/web event, and 21 verified citations. | GPT-5.6 Sol independently eliminated clean equipment, found the hour-24 lot transition, confirmed the 51.8/52.0 accepted-marginal inspection, and implicated the lot without the prompt or skill naming it. |
+| 2026-07-21 | Verification | Phase 2 | The fully integrated browser run passed in one Codex attempt and rendered a 22-citation report after the host verifier completed. | A real 1440px Playwright session showed the red WATCH verdict, exact-body skill load, five broker calls, multi-hop evidence, decision, verification badge, and cited report on the same surface. |
+| 2026-07-21 | Review fix | Phase 2 | Auto-follow the newest agent event and close the completed WATCH socket explicitly. | Browser inspection showed that a long live trace initially displayed its oldest entries and a naturally exhausted stream could be labeled offline, weakening the transparency moment despite correct backend state. |

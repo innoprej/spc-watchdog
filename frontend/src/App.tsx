@@ -138,7 +138,7 @@ function eventPresentation(event: RunEvent) {
     };
   }
   if (event.type === "decision") {
-    return { label: "ROOT-CAUSE DECISION", detail: text, tone: "decision" };
+    return { label: "MODEL CONCLUSION · PENDING GATE", detail: text, tone: "decision" };
   }
   if (event.type === "runtime_error" || event.type === "skill_load_rejected") {
     return {
