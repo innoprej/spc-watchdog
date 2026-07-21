@@ -117,15 +117,15 @@ No application scaffolding begins until this gate passes.
 
 ### Acceptance criteria
 
-- [ ] Scenario 2 deterministically triggers Rule 3 and exposes tool-life evidence not prescribed by the v1 skill.
-- [ ] The v1 live investigation reaches a verified tool-wear verdict and files a grounded, reviewable proposal rather than editing itself directly.
-- [ ] Reject leaves the active skill unchanged; approve creates an immutable v2 and advances the active pointer atomically.
-- [ ] Resetting the scenario preserves v2, and the re-run loads v2 visibly in the activity feed.
-- [ ] The v2 re-run consults tool-life evidence before irrelevant material genealogy and reaches the verified verdict in fewer or equal tool calls.
-- [ ] Both committed replay logs carry a schema version and contain no absolute paths, usernames, or credentials.
-- [ ] Replay reproduces chart, feed, report, and proposal ordering without Codex or API credentials.
-- [ ] `DETERMINISTIC REPLAY` remains visible at 1x, 2x, and 4x; speed changes do not change event order or evidence.
-- [ ] A timed rehearsal shows the core story within three minutes at the selected capture speed.
+- [x] Scenario 2 deterministically triggers Rule 3 and exposes tool-life evidence not prescribed by the v1 skill.
+- [x] The v1 live investigation reaches a verified tool-wear verdict and files a grounded, reviewable proposal rather than editing itself directly.
+- [x] Reject leaves the active skill unchanged; approve creates an immutable v2 and advances the active pointer atomically.
+- [x] Resetting the scenario preserves v2, and the re-run loads v2 visibly in the activity feed.
+- [x] The v2 re-run consults tool-life evidence before irrelevant material genealogy and reaches the verified verdict in fewer or equal tool calls.
+- [x] Both committed replay logs carry a schema version and contain no absolute paths, usernames, or credentials.
+- [x] Replay reproduces chart, feed, report, and proposal ordering without Codex or API credentials.
+- [x] `DETERMINISTIC REPLAY` remains visible at 1x, 2x, and 4x; speed changes do not change event order or evidence.
+- [x] A timed rehearsal shows the core story within three minutes at the selected capture speed.
 - [ ] The Ubuntu clean-clone replay gate remains green.
 - [ ] The phase-close ritual passes with no unresolved CRITICAL review finding.
 
@@ -200,3 +200,10 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Review fix | Phase 2 | Bind reports and citations to the active incident, its fixed visible broker rows, and type-correct values; strip documented Codex auth/state overrides; bound each Codex attempt; preserve inconclusive and rejected outcomes honestly. | The combined independent and `/review` passes found incident and stale-row acceptance, Python bool/int equality, inherited runtime overrides, an unbounded stdout loop, and UI states that could overstate failed or insufficient evidence. |
 | 2026-07-21 | Verification | Phase 2 | The corrected boundary passed a fresh live GPT-5.6 Sol run in one 50-second attempt with 23 verified citations and only agent-message plus the five allowlisted MCP event types. | This re-proved copied CLI authentication, exact OCAP delivery, incident-visible verification, and normal watchdog behavior after the critical review fixes rather than relying only on mocks. |
 | 2026-07-21 | Phase close | Phase 2 | Close the gate with 51 tests, production frontend build, live/replay boot smokes, Python compilation, zero high-risk path/secret scan hits, `/review`, judge-panel review, and an independent post-fix verdict with no CRITICAL or major finding. | The engineering gate is complete; the judge-panel verdict remains an honest submission-readiness FAIL until Phase 3 supplies LEARN/full replay and Phase 4 supplies quantified assets. |
+| 2026-07-21 | Review fix | Phase 3 | Require a v1 trend report that uses decisive tool-life evidence to file a grounded proposal, and give one retry without leaking canonical values. | The first live Scenario 2 report correctly found tool wear but returned a null proposal; allowing that result would make LEARN a claim rather than an enforced product contract. |
+| 2026-07-21 | Discovery | Phase 3 | Reject the first approved v2 as a non-improvement and regenerate the proposal with explicit evidence-order guidance. | Its sentence said to check material before tool-life despite being inserted earlier; the adversarial re-run repeated all six calls, so placement alone was not measurable learning. |
+| 2026-07-21 | Verification | Phase 3 | The corrected v1 filed a three-row grounded proposal after six calls; atomic approval survived reset, and v2 reached the same verified tool-wear verdict in four calls with tool-life immediately after equipment. | The two live JSONL traces prove that v2 omitted both material genealogy and incoming inspection rather than merely restating a better procedure. |
+| 2026-07-21 | Decision | Phase 3 | Start each chart with five baseline points so Scenario 1 trips after about 21 seconds and Scenario 2 after about 24 seconds at 1×. | This preserves an honest live buildup while meeting the capture-pacing target without changing the seeded evidence or rule windows. |
+| 2026-07-21 | Verification | Phase 3 | Commit sanitized canonical fixtures for both scenarios and drive replay through the same chart, feed, report, proposal, and approval surfaces at 1×/2×/4×. | Tests lock schema version, event order, public-safety scanning, approval transition, and the recorded six-to-four-call improvement without credentials. |
+| 2026-07-21 | Capture | Phase 3 | Record final canonical 1920×1080 fixture footage outside the repository under `../captures/phase3-canonical-20260722/scenario-1-final/` (69.12 seconds) and `scenario-2-final/` (142.80 seconds). | The 174-second edit map in `docs/video-script.md` uses actual post-fix footage, cuts idle gaps, and keeps both replay truth labels visible; raw WebM and the 10.056-second TTS sample remain untracked. |
+| 2026-07-21 | Tooling | Phase 3 | Use the documented direct `npx` Playwright CLI fallback for visual inspection and an external Playwright package for video capture. | The bundled user-skill wrapper had CRLF line endings and failed under Bash; no capture dependency or raw media was added to the project. |
