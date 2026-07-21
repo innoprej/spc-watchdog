@@ -97,7 +97,11 @@ def main() -> None:
         smoke_test(args.mode)
         return
 
-    app = create_app(mode=args.mode, data_path=ROOT / "data" / "spc-watchdog.db")
+    app = create_app(
+        mode=args.mode,
+        data_path=ROOT / "data" / "spc-watchdog.db",
+        run_directory=ROOT / "runs" if args.mode == "live" else None,
+    )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 

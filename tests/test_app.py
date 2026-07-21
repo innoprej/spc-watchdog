@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 
 import httpx
@@ -11,6 +12,10 @@ from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
 from spc_watchdog import app as app_module
+from spc_watchdog.event_log import EventLog
+from spc_watchdog.investigation_queue import InvestigationCoordinator
+from spc_watchdog.investigation_runner import InvestigationOutcome
+from spc_watchdog.report import VerificationResult
 
 
 def health_json(app: FastAPI) -> dict[str, object]:
@@ -70,3 +75,69 @@ def test_watch_socket_reaches_the_first_rule_one_incident(
     assert verdict["sequence"] == 26
     assert verdict["violations"][0]["rule"] == 1
     assert verdict["incident"]["id"] == "incident-s1-001"
+
+
+def test_investigation_socket_resumes_without_duplicates_and_returns_verified_report(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    """A reconnect cursor omits acknowledged events and exposes only a passed report."""
+
+    async def no_delay(_: float) -> None:
+        return None
+
+    def fake_runner(**kwargs) -> InvestigationOutcome:
+        log = EventLog(
+            path=kwargs["run_directory"] / "events.jsonl", run_id=kwargs["run_id"]
+        )
+        log.append("hypothesis", {"text": "Test the equipment hypothesis."})
+        log.append("tool_call", {"tool": "query_equipment_logs"})
+        log.append("verifier", {"passed": True, "citation_count": 1})
+        report = {
+            "schema_version": "1.0",
+            "incident_id": kwargs["incident_id"],
+            "status": "concluded",
+            "root_cause": {"text": "The new material lot is implicated.", "citations": []},
+        }
+        (kwargs["run_directory"] / "report.json").write_text(
+            json.dumps(report), encoding="utf-8"
+        )
+        return InvestigationOutcome(
+            run_id=kwargs["run_id"],
+            attempts=1,
+            report=None,
+            verification=VerificationResult(True, (), 1),
+            run_directory=kwargs["run_directory"],
+        )
+
+    monkeypatch.setattr(app_module.asyncio, "sleep", no_delay)
+    database = tmp_path / "socket.db"
+    coordinator = InvestigationCoordinator(
+        database_path=database,
+        runs_root=tmp_path / "runs",
+        runner=fake_runner,
+    )
+    app = app_module.create_app(
+        mode="live", data_path=database, coordinator=coordinator
+    )
+
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws/watch") as watch:
+            watch.receive_json()
+            streamed = [watch.receive_json() for _ in range(7)]
+        assert streamed[-1]["incident"]["id"] == "incident-s1-001"
+        coordinator.wait()
+
+        response = client.get(
+            "/api/investigations/incident-s1-001", params={"after": 2}
+        )
+        assert response.status_code == 200
+        assert [event["sequence"] for event in response.json()["events"]] == [3, 4]
+        assert response.json()["report"]["incident_id"] == "incident-s1-001"
+
+        with client.websocket_connect(
+            "/ws/investigate/incident-s1-001?after=2"
+        ) as investigate:
+            snapshot = investigate.receive_json()
+        assert snapshot["type"] == "investigation_snapshot"
+        assert [event["sequence"] for event in snapshot["events"]] == [3, 4]
+        assert snapshot["report"]["status"] == "concluded"
