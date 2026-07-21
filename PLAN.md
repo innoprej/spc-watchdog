@@ -126,8 +126,8 @@ No application scaffolding begins until this gate passes.
 - [x] Replay reproduces chart, feed, report, and proposal ordering without Codex or API credentials.
 - [x] `DETERMINISTIC REPLAY` remains visible at 1x, 2x, and 4x; speed changes do not change event order or evidence.
 - [x] A timed rehearsal shows the core story within three minutes at the selected capture speed.
-- [ ] The Ubuntu clean-clone replay gate remains green.
-- [ ] The phase-close ritual passes with no unresolved CRITICAL review finding.
+- [x] The Ubuntu clean-clone replay gate remains green.
+- [x] The phase-close ritual passes with no unresolved CRITICAL review finding.
 
 ## Phase 4 — Package and submit
 
@@ -207,3 +207,4 @@ Append entries immediately; do not wait for phase close.
 | 2026-07-21 | Verification | Phase 3 | Commit sanitized canonical fixtures for both scenarios and drive replay through the same chart, feed, report, proposal, and approval surfaces at 1×/2×/4×. | Tests lock schema version, event order, public-safety scanning, approval transition, and the recorded six-to-four-call improvement without credentials. |
 | 2026-07-21 | Capture | Phase 3 | Record final canonical 1920×1080 fixture footage outside the repository under `../captures/phase3-canonical-20260722/scenario-1-final/` (69.12 seconds) and `scenario-2-final/` (142.80 seconds). | The 174-second edit map in `docs/video-script.md` uses actual post-fix footage, cuts idle gaps, and keeps both replay truth labels visible; raw WebM and the 10.056-second TTS sample remain untracked. |
 | 2026-07-21 | Tooling | Phase 3 | Use the documented direct `npx` Playwright CLI fallback for visual inspection and an external Playwright package for video capture. | The bundled user-skill wrapper had CRLF line endings and failed under Bash; no capture dependency or raw media was added to the project. |
+| 2026-07-21 | Phase close | Phase 3 | Close the implementation gate with 64 tests, Python compilation, production frontend build, zero high-severity npm findings, two credential-free replay smokes, `/review`, judge-panel review, and independent verification with no CRITICAL or major finding. | GitHub `ubuntu-latest` run `29857626495` passed the clean-clone replay workflow on commit `db39b18`; the judge-panel review remains an honest final-submission FAIL only for the Phase 4 impact, packaging, and Devpost work. |
